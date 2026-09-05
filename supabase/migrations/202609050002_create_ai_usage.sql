@@ -7,6 +7,8 @@ create table private.ai_daily_usage (
   primary key (user_id, usage_date)
 );
 
+alter table private.ai_daily_usage enable row level security;
+
 revoke all on table private.ai_daily_usage from public, anon, authenticated;
 
 create or replace function public.claim_ai_daily_quota(daily_limit integer)
