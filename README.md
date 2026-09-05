@@ -2,7 +2,9 @@
 
 Momentum; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekran süresini ve uzun vadeli hedefleri tek yerde takip eden local-first bir React PWA'dır.
 
-> Durum: v1.0 altyapısı hazır. Uygulama bugün cihaz üzerinde çalışır; hesap, güvenli bulut senkronizasyonu ve sunucu taraflı AI özellikleri Supabase projesi bağlandığında açılır.
+> Durum: v1.0 canlıda. Hesap, RLS korumalı bulut senkronizasyonu ve sunucu taraflı AI özellikleri Supabase üzerinden çalışır.
+
+**Canlı demo:** [momentum-kappa-sepia.vercel.app](https://momentum-kappa-sepia.vercel.app)
 
 ![Momentum bugün ekranı](outputs/ui-ux/today-desktop.png)
 
@@ -61,6 +63,8 @@ Supabase veritabanı, Auth ve Edge Function kurulumu için [Supabase kurulum not
 
 ## Production deploy
 
+Production ortamı Vercel üzerinde yayında; Supabase Auth yönlendirmeleri canlı alan adına bağlıdır.
+
 1. Ücretsiz Supabase projesini oluşturup migration'ları ve Edge Function'ı deploy edin.
 2. Projeyi GitHub'a gönderin ve Vercel'e bağlayın.
 3. Vercel Environment Variables alanına `VITE_SUPABASE_URL` ile `VITE_SUPABASE_PUBLISHABLE_KEY` değerlerini ekleyin.
@@ -85,4 +89,4 @@ Vercel güvenlik başlıkları [vercel.json](vercel.json), her push/PR doğrulam
 - [x] Çakışma korumalı cihazlar arası bulut senkronizasyonu
 - [x] Gemini çağrısını kimlik doğrulanan Edge Function'a taşıma
 - [x] Test, tip kontrolü ve build için GitHub Actions
-- [ ] Supabase ve Vercel production ortamlarını oluşturup canlıya alma
+- [x] Supabase ve Vercel production ortamlarını oluşturup canlıya alma
