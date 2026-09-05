@@ -1,0 +1,184 @@
+/* Shared form language: comfortable targets, visible units and consistent focus. */
+:root {
+  color-scheme: dark;
+  --field-bg: #0f1629;
+  --field-border: #35415d;
+  --field-text: #edf3ff;
+  --field-muted: #97a8c6;
+  --field-accent: #8ceecb;
+}
+
+.app-shell input:not([type='checkbox']):not([type='file']),
+.app-shell select,
+.app-shell textarea {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--field-border);
+  border-radius: 11px;
+  background: var(--field-bg);
+  color: var(--field-text);
+  padding: 12px 14px;
+  font: 500 13px/1.5 Manrope, Arial, sans-serif;
+  box-shadow: inset 0 1px 2px #00000018;
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.app-shell :is(input, textarea)::placeholder { color: #8495b5; opacity: 1; font-weight: 400; }
+.app-shell :is(input, select, textarea):hover:not(:disabled) { border-color: #53617e; }
+.app-shell :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--field-accent);
+  outline-offset: 2px;
+  border-color: var(--field-accent);
+  box-shadow: 0 0 0 5px #8ceecb10;
+}
+.app-shell :is(input, select, textarea):disabled { opacity: .5; cursor: not-allowed; }
+.app-shell :is(input, select, textarea):is([aria-invalid='true'], :user-invalid) {
+  border-color: #ed949f;
+  box-shadow: 0 0 0 3px #ed949f12;
+}
+.app-shell textarea { min-height: 96px; resize: vertical; width: 100%; line-height: 1.7; }
+.app-shell select {
+  appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2397a8c6' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+.app-shell select option { background: #151e32; color: var(--field-text); }
+.app-shell input:is([type='date'], [type='time']) { font-variant-numeric: tabular-nums; }
+.app-shell input::-webkit-calendar-picker-indicator { opacity: .7; cursor: pointer; padding: 3px; }
+.app-shell input[type='checkbox'] { width: 18px; height: 18px; flex: none; accent-color: var(--field-accent); }
+.app-shell input[type='number'] { appearance: textfield; -moz-appearance: textfield; }
+.app-shell input[type='number']::-webkit-inner-spin-button,
+.app-shell input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.app-shell .number-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  min-height: 46px;
+  padding-right: 13px;
+  overflow: hidden;
+  border: 1px solid var(--field-border);
+  border-radius: 11px;
+  background: var(--field-bg);
+  box-shadow: inset 0 1px 2px #00000018;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.app-shell .number-field:hover { border-color: #53617e; }
+.app-shell .number-field:focus-within { border-color: var(--field-accent); box-shadow: 0 0 0 3px #8ceecb20; }
+.app-shell .number-field:has(input:is([aria-invalid='true'], :user-invalid)) { border-color: #ed949f; }
+.app-shell .number-field > input[type='number'] {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 0;
+  min-height: 44px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 11px 0 11px 13px;
+  font: 500 15px/1.5 'DM Mono', Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  box-shadow: none;
+  outline: none;
+}
+.app-shell .number-field > input:focus-visible { outline: none; box-shadow: none; }
+.app-shell .number-field-unit {
+  position: static;
+  transform: none;
+  flex: 0 0 auto;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  color: var(--field-muted);
+  font: 500 12px/1.5 Manrope, Arial, sans-serif;
+}
+.app-shell .number-field:has(input:disabled) { opacity: .5; }
+.app-shell .number-field input:disabled { opacity: 1; }
+
+.quick-entry { margin-top: 22px; padding: 18px; border: 1px solid #ffffff10; border-radius: 13px; background: #0b12204d; }
+.quick-entry-heading { display: flex; align-items: center; gap: 10px; }
+.quick-entry-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #8ceecb12; color: #a3ead5; flex: none; }
+.quick-entry-heading strong { display: block; font-size: 12px; font-weight: 700; color: #e1e9f8; }
+.quick-entry-heading p { margin: 3px 0 0; font-size: 12px; line-height: 1.5; color: var(--field-muted); }
+.quick-add-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-top: 14px; }
+.app-shell .quick-add-form .number-field { min-height: 50px; }
+.app-shell .quick-add-form .number-field input { min-height: 48px; font-size: 19px; }
+.app-shell .quick-add-form > button { min-height: 50px; padding: 0 20px; border: 1px solid #8ceecb40; border-radius: 11px; background: #245a4e; color: #c5ffea; font-size: 12px; font-weight: 800; }
+.app-shell .quick-add-form > button:disabled { background: #1b2837; border-color: #35415d; color: #8797b4; opacity: .7; cursor: not-allowed; }
+.minute-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 10px; }
+.minute-presets > span { font-size: 12px; color: #8495b5; margin-right: 3px; }
+.minute-presets button { min-height: 34px; padding: 6px 12px; border: 1px solid #33425c; border-radius: 8px; background: #152035; color: #b6c5df; font-size: 12px; }
+.minute-presets button[aria-pressed='true'] { color: #c2ffe8; border-color: #74d8b9; background: #21473f; }
+.quick-entry .form-error { margin: 12px 0 0; }
+
+.app-shell :is(.habit-form, .goal-form, .settings-form, .onboarding-profile, .reminder-grid, .reflection-form) label:not(.toggle-label) {
+  min-width: 0; color: #b5c3dc; font-size: 12px; gap: 9px;
+}
+.form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.reflection-form { gap: 18px; }
+.habit-amount-form { gap: 9px; }
+.habit-amount-form .number-field { flex: 1; }
+.app-shell :is(.habit-amount-form, .plan-add, .history-editor, .history-add-form, .screen-time-entry, .screen-time-manual, .management-actions, .management-add, .manual-goal, .gemini-key-row) > button,
+.app-shell .reflection-save { min-height: 44px; border-radius: 10px; padding: 10px 13px; font-size: 12px; }
+.app-shell .history-editor { grid-template-columns: minmax(140px, 1fr) minmax(120px, 150px) auto auto; gap: 10px; padding: 12px; background: #0d1526; border: 1px solid #ffffff0c; border-radius: 12px; }
+.app-shell .history-add-form { grid-template-columns: minmax(140px, 1fr) minmax(120px, 150px) auto; gap: 10px; }
+.app-shell .habit-history { grid-template-columns: minmax(120px, 1fr) 130px minmax(110px, 140px) auto auto; }
+.app-shell .habit-history > span:first-child { color: #cad6eb; font-size: 12px; }
+.history-list { gap: 10px; }
+.day-modal-content { gap: 28px; }
+.day-modal-content h3 { font-size: 14px; }
+.app-shell .screen-time-manual { grid-template-columns: minmax(0, 1fr) minmax(120px, .7fr); gap: 10px; padding: 14px; border: 1px solid #ffffff10; border-radius: 12px; background: #0d1526; }
+.app-shell .screen-time-entry { grid-template-columns: minmax(0, 1fr) 128px; gap: 9px; padding: 12px; border: 1px solid #ffffff10; border-radius: 12px; background: #0d1526; }
+.screen-time-entry select { grid-column: 1 / -1; }
+.app-shell .screen-time-entry .delete-action { grid-column: 2; }
+.screen-time-confirm-row { grid-template-columns: minmax(0, 1fr) 120px 36px; gap: 8px; }
+.screen-time-confirm-row > button { min-height: 44px; border-radius: 8px; }
+.screen-time-upload { min-height: 44px; border-radius: 10px; }
+.app-shell .manual-goal { width: 100%; }
+.app-shell .manual-goal .number-field { min-width: 130px; max-width: 210px; }
+.goal-card > .goal-form { grid-column: 1 / -1; border-top: 1px solid #ffffff12; padding-top: 4px; }
+.management-row { padding: 14px; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.management-fields { grid-template-columns: 58px minmax(0, 1fr) 160px; gap: 10px; }
+.habit-management-fields { grid-template-columns: 58px minmax(0, 1fr) 140px repeat(2, minmax(110px, .8fr)); }
+.management-actions { justify-content: flex-end; }
+.management-add { grid-template-columns: 58px minmax(0, 1fr) 160px auto; gap: 10px; }
+.app-shell .onboarding-profile label:last-child input { padding-right: 0; }
+.form-error, .screen-time-error { font-size: 12px; line-height: 1.6; }
+
+@media (max-width: 760px) {
+  .app-shell :is(input:not([type='checkbox']):not([type='file']), select, textarea) { font-size: 16px; }
+  .app-shell .minute-presets button { min-height: 44px; }
+  .app-shell .history-editor, .app-shell .history-add-form { grid-template-columns: minmax(0, 1fr) minmax(110px, .65fr); }
+  .app-shell .habit-history { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-shell .habit-history > span:first-child { grid-column: 1 / -1; }
+  .app-shell .habit-history > .number-field { grid-column: auto; }
+  .management-fields, .habit-management-fields { grid-template-columns: 54px minmax(0, 1fr); }
+  .management-fields select, .habit-management-fields select { grid-column: 1 / -1; }
+  .management-add { grid-template-columns: 54px minmax(0, 1fr); }
+  .management-add select { grid-column: 1 / -1; }
+  .management-add button { grid-column: 1 / -1; }
+  .onboarding-profile { grid-template-columns: 1fr; }
+}
+@media (max-width: 460px) {
+  .quick-entry { padding: 14px; }
+  .minute-presets > span { width: 100%; }
+  .app-shell .quick-add-form > button { padding: 0 14px; }
+  .form-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .app-shell .screen-time-manual { grid-template-columns: minmax(0, 1fr) 110px; padding: 10px; gap: 8px; }
+  .app-shell .screen-time-manual > input, .app-shell .screen-time-manual > select { grid-column: 1 / -1; }
+  .app-shell .screen-time-manual > .number-field { grid-column: 1; grid-row: 2; }
+  .app-shell .screen-time-manual > button { grid-column: 2; grid-row: 2; }
+  .screen-time-confirm-row { grid-template-columns: minmax(0, 1fr) 104px 32px; }
+  .app-shell .management-actions { display: flex; flex-wrap: wrap; }
+  .app-shell .history-editor > select:first-child, .app-shell .history-add-form > select { grid-column: 1 / -1; }
+  .app-shell .habit-history > select:first-of-type { grid-column: auto; }
+  .app-shell .habit-history > button { grid-column: auto; }
+  .app-shell .goal-actions { justify-content: flex-start; }
+  .hero > div:first-child { min-width: 0; }
+  .hero h1 { font-size: clamp(27px, 7vw, 31px); }
+}

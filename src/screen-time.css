@@ -1,0 +1,40 @@
+.screen-time-section { margin-top: 5px; padding-top: 15px; border-top: 1px solid #ffffff0d; }
+.screen-time-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.screen-time-heading span { color: #909bb9; font-size: 12px; font-weight: 700; }
+.screen-time-heading strong { color: #f7a8a8; font-size: 13px; }
+.screen-time-scanner { margin-top: 12px; }
+.screen-time-privacy { color: #7f8baa; font-size: 12px; line-height: 1.5; margin: 0 0 8px; }
+.screen-time-status { color: #a7b1cc; font-size: 12px; text-align: center; margin: 8px 0; }
+.screen-time-error { color: #f7a8a8; font-size: 12px; line-height: 1.5; margin: 8px 0; }
+.screen-time-upload { width: 100%; color: #8be9c9; background: #1b2a3b; border: 1px dashed #3a5a6a; border-radius: 7px; padding: 8px; font-size: 12px; font-weight: 700; }
+.screen-time-list { display: flex; flex-direction: column; gap: 7px; margin-top: 13px; }
+.screen-time-list > p,.screen-time-confirm > p { color: #a7b1cc; font-size: 12px; font-weight: 700; margin: 0 0 2px; }
+.screen-time-entry { display: grid; grid-template-columns: minmax(0,1fr) 76px 130px auto auto; align-items: center; gap: 5px; }
+.screen-time-entry input,.screen-time-entry select,.screen-time-confirm-row input,.screen-time-manual input,.screen-time-manual select { min-width: 0; width: 100%; color: #e3e9fb; background: #0c1121; border: 1px solid #ffffff16; border-radius: 6px; padding: 6px 8px; outline: none; font-size: 12px; }
+.screen-time-entry input:focus,.screen-time-confirm-row input:focus,.screen-time-manual input:focus { border-color: #73e7bf8b; box-shadow: 0 0 0 3px #63e6b214; }
+.screen-time-minutes { position: relative; }
+.screen-time-minutes input { padding-right: 23px; color: #f7a8a8; }
+.screen-time-minutes span { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); color: #7f8baa; font-size: 12px; pointer-events: none; }
+.screen-time-entry button { color: #b8c3df; background: #ffffff0a; border: 0; border-radius: 6px; padding: 6px 7px; font-size: 12px; font-weight: 700; }
+.screen-time-entry button:disabled { opacity: .35; cursor: not-allowed; }
+.screen-time-entry button.delete-action { color: #ee9eab; }
+.screen-time-manual { display: grid; grid-template-columns: minmax(110px,1fr) 82px 135px auto; gap: 8px; margin-top: 12px; }
+.screen-time-manual button { color: #f2a6a6; background: #3b2a2a; border: 0; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 700; }
+.screen-time-manual button:disabled { opacity: .45; cursor: not-allowed; }
+.screen-time-confirm { margin-top: 12px; padding: 14px; background: #10172a; border: 1px solid #ffffff14; border-radius: 10px; }
+.screen-time-confirm > p { margin-bottom: 12px; }
+.screen-time-confirm-row { display: grid; grid-template-columns: minmax(0,1fr) 66px 18px 24px; align-items: center; gap: 6px; margin-bottom: 7px; }
+.screen-time-confirm-row span { color: #7f8baa; font-size: 12px; }
+.screen-time-confirm-row button { color: #ee9eab; background: transparent; border: 0; font-size: 13px; }
+.screen-time-confirm-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 12px; }
+.screen-time-confirm-actions button { color: #11221e; background: #8ceecb; border: 0; border-radius: 7px; padding: 8px 12px; font-size: 12px; font-weight: 800; }
+.screen-time-confirm-actions button:last-child { color: #b8c3df; background: #ffffff10; }
+.screen-time-confirm-actions button:disabled { opacity: .4; cursor: not-allowed; }
+
+@media (max-width: 460px) {
+  .screen-time-entry { grid-template-columns: minmax(0,1fr) 82px; }
+  .screen-time-entry select { grid-column: 1 / -1; }
+  .screen-time-entry .delete-action { grid-column: 2; }
+  .screen-time-manual { grid-template-columns: minmax(0,1fr) 90px; }
+  .screen-time-manual select { grid-column: 1 / 2; }
+}

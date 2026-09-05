@@ -1,0 +1,11 @@
+.calendar-month-nav { display: flex; align-items: center; gap: 8px; color: #8f9ab9; font-size: 12px; }
+.calendar-month-nav button { display: grid; place-items: center; width: 30px; height: 30px; color: #b8c3df; background: #ffffff09; border: 1px solid #ffffff12; border-radius: 7px; font-size: 18px; line-height: 1; }
+.calendar-month-nav button:disabled { opacity: .3; cursor: not-allowed; }
+.calendar-month-nav span { min-width: 92px; text-align: center; text-transform: capitalize; }
+.calendar-grid button:disabled { opacity: .28; cursor: not-allowed; filter: saturate(.25); }
+.calendar-grid button:disabled:hover { border-color: transparent; transform: none; }
+
+@media (max-width: 520px) {
+  .heatmap-card .card-heading { flex-direction: column; }
+  .calendar-month-nav { width: 100%; justify-content: space-between; }
+}
