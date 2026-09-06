@@ -73,9 +73,9 @@ export default {
       const contentType = request.headers.get('content-type')?.toLowerCase() ?? ''
       if (!contentType.startsWith('application/json')) throw new RequestError(415, 'Content-Type application/json olmalı.')
       const image = validateImagePayload(await request.json())
-      const { data: quotaClaimed, error: quotaError } = await context.supabase.rpc('claim_ai_daily_quota', { daily_limit: 5 })
+      const { data: quotaClaimed, error: quotaError } = await context.supabase.rpc('claim_ai_daily_quota', { daily_limit: 20 })
       if (quotaError) throw new RequestError(503, 'AI kullanım kotası kontrol edilemedi.')
-      if (!quotaClaimed) throw new RequestError(429, 'Bugünkü beş ekran görüntüsü analiz hakkın doldu.')
+      if (!quotaClaimed) throw new RequestError(429, 'Bugünkü 20 ekran görüntüsü analiz hakkın doldu.')
       return Response.json({ entries: await callGemini(image) })
     } catch (error) {
       const status = error instanceof RequestError ? error.status : 400
