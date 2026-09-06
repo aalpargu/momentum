@@ -121,8 +121,9 @@ export async function analyzeScreenTimeInCloud(payload: { mimeType: string; data
     const context = error.context as Response | undefined
     if (context) {
       try {
-        const body = await context.clone().json() as { error?: unknown }
-        if (typeof body.error === 'string' && body.error) throw new Error(body.error)
+        const body = await context.clone().json() as { error?: unknown; message?: unknown }
+        const message = typeof body.error === 'string' ? body.error : typeof body.message === 'string' ? body.message : ''
+        if (message) throw new Error(message)
       } catch (cause) { if (cause instanceof Error && cause.message !== 'Unexpected end of JSON input') throw cause }
     }
     throw new Error(error.message || 'Gemini analiz servisine ulaşılamadı.')

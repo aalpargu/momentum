@@ -43,10 +43,10 @@ async function callGemini(image: { mimeType: string; data: string }) {
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       signal: controller.signal,
       body: JSON.stringify({
-        contents: [{ parts: [{ text: 'Bu Samsung Digital Wellbeing ekran görüntüsündeki tüm uygulama adlarını ve kullanım sürelerini dakika cinsinden çıkar. Her uygulamayı dahil et.' }, { inline_data: { mime_type: image.mimeType, data: image.data } }] }],
+        contents: [{ parts: [{ text: 'Bu ekran süresi görüntüsündeki tüm uygulama adlarını ve kullanım sürelerini dakika cinsinden çıkar. Her uygulamayı dahil et.' }, { inlineData: { mimeType: image.mimeType, data: image.data } }] }],
         generationConfig: {
           responseMimeType: 'application/json',
-          responseSchema: { type: 'ARRAY', maxItems: 200, items: { type: 'OBJECT', properties: { app: { type: 'STRING' }, minutes: { type: 'INTEGER', minimum: 1, maximum: 1440 } }, required: ['app', 'minutes'] } },
+          responseSchema: { type: 'ARRAY', items: { type: 'OBJECT', properties: { app: { type: 'STRING' }, minutes: { type: 'INTEGER', minimum: 1, maximum: 1440 } }, required: ['app', 'minutes'] } },
         },
       }),
     })

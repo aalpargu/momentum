@@ -212,7 +212,7 @@ async function analyzeScreenTime(body) {
   const key = loadGeminiKey()
   if (!key) throw new HttpError(409, "Önce Ayarlar'dan Gemini bağlantısını kur.")
   const image = validateImagePayload(body)
-  const geminiBody = { contents: [{ parts: [{ text: 'Bu Samsung Digital Wellbeing ekran görüntüsündeki tüm uygulama adlarını ve kullanım sürelerini dakika cinsinden çıkar. Her uygulamayı dahil et.' }, { inline_data: { mime_type: image.mimeType, data: image.data } }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'ARRAY', items: { type: 'OBJECT', properties: { app: { type: 'STRING' }, minutes: { type: 'INTEGER', minimum: 1, maximum: 1440 } }, required: ['app', 'minutes'] } } } }
+  const geminiBody = { contents: [{ parts: [{ text: 'Bu ekran süresi görüntüsündeki tüm uygulama adlarını ve kullanım sürelerini dakika cinsinden çıkar. Her uygulamayı dahil et.' }, { inlineData: { mimeType: image.mimeType, data: image.data } }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'ARRAY', items: { type: 'OBJECT', properties: { app: { type: 'STRING' }, minutes: { type: 'INTEGER', minimum: 1, maximum: 1440 } }, required: ['app', 'minutes'] } } } }
   const { response, body: result } = await fetchJsonWithTimeout('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(geminiBody) })
   if (!response.ok) throw new HttpError(response.status >= 500 ? 502 : response.status, googleErrorMessage(response, result))
   const text = result?.candidates?.[0]?.content?.parts?.[0]?.text
