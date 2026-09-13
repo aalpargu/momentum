@@ -1,6 +1,7 @@
 import { createClient, type Session, type User } from '@supabase/supabase-js'
 import { cloudConfigured, supabasePublishableKey, supabaseUrl } from './cloudConfig'
 import type { ClientDiagnostic } from './diagnostics'
+import type { ReminderSettings } from './domain'
 
 const client = cloudConfigured
   ? createClient(supabaseUrl, supabasePublishableKey, {
@@ -216,4 +217,29 @@ export async function submitProductFeedback(input: { category: 'idea' | 'problem
   })
   if (error?.message.includes('Daily feedback limit reached')) throw new Error('Günlük geri bildirim sınırına ulaşıldı. Yarın tekrar deneyebilirsin.')
   cloudError(error, 'Geri bildirim gönderilemedi. Daha sonra tekrar dene.')
+}
+
+async function invokePushReminders(body: Record<string, unknown>) {
+  const { data, error } = await requireClient().functions.invoke('push-reminders', { body })
+  if (error) throw new Error(localizedCloudMessage(error.message, 'Arka plan hatırlatıcı servisine ulaşılamadı.'))
+  if (data?.error) throw new Error(String(data.error))
+  return data as Record<string, unknown>
+}
+
+export async function getPushPublicKey() {
+  const data = await invokePushReminders({ action: 'public-key' })
+  if (typeof data.publicKey !== 'string' || data.publicKey.length < 40) throw new Error('Push anahtarı doğrulanamadı.')
+  return data.publicKey
+}
+
+export async function registerPushSubscription(input: { endpoint: string; p256dh: string; auth: string; timezone: string; preferences: ReminderSettings }) {
+  await invokePushReminders({ action: 'subscribe', ...input })
+}
+
+export async function removePushSubscription(endpoint: string) {
+  await invokePushReminders({ action: 'unsubscribe', endpoint })
+}
+
+export async function updatePushReminderPreferences(endpoint: string, timezone: string, preferences: ReminderSettings) {
+  await invokePushReminders({ action: 'preferences', endpoint, timezone, preferences })
 }

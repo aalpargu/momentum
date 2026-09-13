@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const publicDirectory = join(root, 'public')
 const manifest = JSON.parse(readFileSync(join(publicDirectory, 'manifest.webmanifest'), 'utf8'))
+const viteConfig = readFileSync(join(root, 'vite.config.ts'), 'utf8')
 
 assert.equal(manifest.display, 'standalone', 'PWA bağımsız uygulama olarak açılmalı.')
 assert.equal(manifest.lang, 'tr', 'Manifest dili Türkçe olmalı.')
@@ -26,4 +27,6 @@ for (const file of ['privacy.html', 'terms.html', 'support.html']) {
 }
 
 assert.equal(existsSync(join(publicDirectory, 'sw.js')), false, 'Eski statik service worker tekrar eklenmemeli; build sürümlü dosyayı üretir.')
-console.log('PWA ikonları, manifest ve son kullanıcı belgeleri doğrulandı.')
+assert.match(viteConfig, /addEventListener\('push'/, 'Service worker arka plan push bildirimlerini işlemeli.')
+assert.match(viteConfig, /addEventListener\('notificationclick'/, 'Push bildirimi uygulamaya geri dönmeli.')
+console.log('PWA ikonları, manifest, push olayları ve son kullanıcı belgeleri doğrulandı.')

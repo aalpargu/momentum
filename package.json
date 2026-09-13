@@ -1,7 +1,7 @@
 {
   "name": "momentum",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "engines": {
     "node": "24.x"
@@ -17,7 +17,7 @@
     "check:assets": "node scripts/check-static-assets.mjs",
     "check": "npm run test && npm run lint && npm run check:assets && npm run build",
     "supabase:db:push": "supabase db push",
-    "supabase:functions:deploy": "supabase functions deploy analyze-screen-time && supabase functions deploy delete-account"
+    "supabase:functions:deploy": "supabase functions deploy analyze-screen-time && supabase functions deploy delete-account && supabase functions deploy push-reminders --no-verify-jwt"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.115.0",

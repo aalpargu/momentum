@@ -89,6 +89,17 @@
 .milestone-editor > div { display: grid; grid-template-columns: 1fr 130px 34px; gap: 7px; }
 .milestone-editor > div button,.add-milestone { border: 1px solid #ffffff16; border-radius: 7px; color: #adb9d2; background: #20283b; }
 .add-milestone { padding: 8px; font-size: 12px; font-weight: 750; }
+.background-reminder-control { display: grid; gap: 9px; margin-top: 4px; border: 1px solid #5ee4bb2f; border-radius: 10px; padding: 12px; background: #10251f45; }
+.background-reminder-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.background-reminder-heading > div { display: grid; gap: 4px; }
+.background-reminder-heading strong { color: #dce9f7; font-size: 13px; }
+.background-reminder-heading p { margin: 0; color: #8f9fba; font-size: 12px; line-height: 1.5; }
+.background-reminder-heading > span { flex: none; border: 1px solid #ffffff18; border-radius: 99px; padding: 4px 7px; color: #aab5ce; background: #ffffff08; font: 600 11px 'DM Mono', Consolas, monospace; }
+.background-reminder-heading > span.connected { border-color: #5ee4bb66; color: #98f0cf; background: #28695136; }
+.background-reminder-status { margin: 0; color: #a7f3d0; font-size: 12px; line-height: 1.5; }
+.background-reminder-control > button { min-height: 38px; border: 1px solid #5ee4bb66; border-radius: 8px; padding: 8px 11px; color: #a8edd5; background: #1d61563d; font-size: 12px; font-weight: 750; }
+.background-reminder-control > button:disabled { opacity: .45; cursor: not-allowed; }
+.background-reminder-control > small { color: #7f8baa; font-size: 11px; line-height: 1.55; }
 
 html[data-theme='light'] { color-scheme: light; color: #172033; background: #eef3f7; }
 html[data-theme='light'] body { color: #172033; background: radial-gradient(circle at 12% -10%, #dce8ff 0, transparent 29rem), radial-gradient(circle at 100% 30%, #d9f2ed 0, transparent 31rem), #eef3f7; }

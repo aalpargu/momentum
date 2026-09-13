@@ -25,6 +25,7 @@ import { confirmAction } from './components/confirmAction'
 import { DailyPlan, FocusNoteModal } from './components/PlanningCards'
 import { addTrashItem, removeTrashItem } from './lib/trashStore'
 import { restoreTrashItem, type TrashItem, type TrashKind } from './lib/trash'
+import { writeExternalBackup } from './lib/externalBackup'
 
 type ActiveFocusSegment = { startedAt: string; endedAt?: string }
 type ActiveFocusSession = { version: 1; id: string; title: string; area: Area; startedAt: string; status: 'running' | 'paused'; segments: ActiveFocusSegment[]; intention?: string; targetSeconds?: number; breakMinutes?: number; rounds?: number; currentRound?: number; breakEndsAt?: string }
@@ -64,6 +65,7 @@ const ProgressView = lazy(() => import('./components/ProgressView').then(module 
 const ScreenTimePanel = lazy(() => import('./components/ScreenTimePanel').then(module => ({ default: module.ScreenTimePanel })))
 const FeedbackPanel = lazy(() => import('./components/FeedbackPanel').then(module => ({ default: module.FeedbackPanel })))
 const TrashPanel = lazy(() => import('./components/TrashPanel').then(module => ({ default: module.TrashPanel })))
+const ExternalBackupPanel = lazy(() => import('./components/ExternalBackupPanel').then(module => ({ default: module.ExternalBackupPanel })))
 let startupRecoveryNeeded = false
 
 function emptyState(): AppState { return { habits: defaultHabits, focusCategories: defaultFocusCategories, sessions: [], habitLog: {}, dailyPlans: {}, reflections: {}, goals: [], weeklyFocus: {}, weeklyReviews: {}, screenTimeEntries: [], settings: defaultSettings } }
@@ -500,9 +502,10 @@ function App() {
 
   const persistStatePayload = async (payload: string) => {
     if (storageModeRef.current === 'indexeddb') {
-      try { await saveMainState(payload); return }
+      try { await saveMainState(payload); void writeExternalBackup(payload).catch(() => undefined); return }
       catch {
         writeFallbackState(payload)
+        void writeExternalBackup(payload).catch(() => undefined)
         storageModeRef.current = 'localstorage-fallback'
         setStorageMode('localstorage-fallback')
         setRecoveryNotice('IndexedDB bağlantısı kesildi; yeni kayıtlar geçici olarak tarayıcı depolamasında korunuyor.')
@@ -510,6 +513,7 @@ function App() {
       }
     }
     writeFallbackState(payload)
+    void writeExternalBackup(payload).catch(() => undefined)
   }
 
   const actions = useSavedActions(() => stateRef.current, next => { stateRef.current = next; setAppState(next) }, persistStatePayload)
@@ -1091,7 +1095,7 @@ function App() {
     {isGoalFormOpen && <Suspense fallback={<LazyLoading label="Hedef formu hazırlanıyor…" overlay />}><GoalForm focusCategories={state.focusCategories} onClose={() => setIsGoalFormOpen(false)} onSave={async (goal) => { const ok = await saveGoal(goal); if (ok) setIsGoalFormOpen(false); return ok }} /></Suspense>}
     {selectedDate && <Suspense fallback={<LazyLoading label="Gün ayrıntıları hazırlanıyor…" overlay />}><DayDetailModal date={selectedDate} state={state} focusCategories={state.focusCategories} onClose={() => setSelectedDate(null)} onAddSession={addManualSession} onUpdateSession={updateSession} onDeleteSession={deleteSession} onSetHabitEntry={setHabitEntryForDate} onSaveReflection={saveReflectionForDate} onUpdateScreenTime={updateScreenTimeEntry} onDeleteScreenTime={deleteScreenTimeEntry} /></Suspense>}
     {isSettingsOpen && <SettingsModal state={state} today={today} storageMode={storageMode} cloud={cloud} hasActiveFocus={Boolean(activeFocus)} onClose={() => setIsSettingsOpen(false)} onImport={handleImportState} onRestoreRollback={restoreImportRollback} onRestoreTrash={restoreFromTrash} />}
-    {isCustomizeOpen && <Suspense fallback={<LazyLoading label="Ayarlar hazırlanıyor…" overlay />}><CustomizeModal state={state} hasActiveFocus={Boolean(activeFocus)} onClose={() => setIsCustomizeOpen(false)} onOpenData={() => { setIsCustomizeOpen(false); setIsSettingsOpen(true) }} onSaveSettings={saveSettings} onSaveHabit={saveHabit} onArchiveHabit={archiveHabit} onDeleteHabit={deleteHabit} onAddFocusCategory={addFocusCategory} onSaveFocusCategory={saveFocusCategory} onArchiveFocusCategory={archiveFocusCategory} onDeleteFocusCategory={deleteFocusCategory} /></Suspense>}
+    {isCustomizeOpen && <Suspense fallback={<LazyLoading label="Ayarlar hazırlanıyor…" overlay />}><CustomizeModal state={state} account={cloud.account} hasActiveFocus={Boolean(activeFocus)} onClose={() => setIsCustomizeOpen(false)} onOpenData={() => { setIsCustomizeOpen(false); setIsSettingsOpen(true) }} onSaveSettings={saveSettings} onSaveHabit={saveHabit} onArchiveHabit={archiveHabit} onDeleteHabit={deleteHabit} onAddFocusCategory={addFocusCategory} onSaveFocusCategory={saveFocusCategory} onArchiveFocusCategory={archiveFocusCategory} onDeleteFocusCategory={deleteFocusCategory} /></Suspense>}
     {quickCaptureOpen && <AccessibleModal label="Hızlı odak kaydı" className="card universal-capture-modal" onClose={() => setQuickCaptureOpen(false)}><div className="card-heading"><div><p className="eyebrow">HIZLI KAYIT</p><h2>Her yerden odak ekle</h2></div><button type="button" className="modal-close" onClick={() => setQuickCaptureOpen(false)} aria-label="Kapat">×</button></div><QuickCapture selected={selected} categories={state.focusCategories} recent={state.experience?.recentEntries ?? []} onSave={async (...args) => { const error = await addManualSession(...args); if (!error) setQuickCaptureOpen(false); return error }} /></AccessibleModal>}
     {noteSessionId && <FocusNoteModal session={state.sessions.find((session) => session.id === noteSessionId)} onClose={() => setNoteSessionId(null)} onSave={saveSessionNote} />}
     {!state.settings.onboardingComplete && <OnboardingModal state={state} onComplete={completeOnboarding} />}
@@ -1314,6 +1318,8 @@ function SettingsModal({ state, today, storageMode, cloud, hasActiveFocus, onClo
       </section>
       <hr style={{ borderColor: '#ffffff12', margin: '0', borderStyle: 'solid', borderWidth: '1px 0 0 0' }} />
       <section className="backup-settings automatic-backups"><div><p className="eyebrow">OTOMATİK KURTARMA</p><h3>Son güvenli sürümler</h3><p className="gemini-help">Değişikliklerden sonra son yedi sürüm ayrı bir tarayıcı deposunda tutulur. Her sürüm geri yüklenmeden önce şema doğrulamasından geçer.</p></div><p className="backup-store-status" role="status">{backupStoreStatus}</p>{automaticBackups.length > 0 && <div className="automatic-backup-list">{automaticBackups.map((snapshot, index) => <div key={snapshot.id}><span><strong>{index === 0 ? 'En yeni' : `${index + 1}. sürüm`}</strong>{new Date(snapshot.createdAt).toLocaleString('tr-TR')}</span><button type="button" disabled={hasActiveFocus} onClick={() => restoreAutomaticBackup(snapshot)}>Geri yükle</button></div>)}</div>}{localStorage.getItem(corruptStateStorageKey) && <button className="raw-recovery-button" type="button" onClick={downloadCorruptState}>Bozuk ham kaydı incelemek için indir</button>}</section>
+      <hr style={{ borderColor: '#ffffff12', margin: '0', borderStyle: 'solid', borderWidth: '1px 0 0 0' }} />
+      <Suspense fallback={<section className="external-backup-panel" aria-busy="true"><p className="gemini-help">Cihaz dışı yedekleme hazırlanıyor…</p></section>}><ExternalBackupPanel state={state} /></Suspense>
       <hr style={{ borderColor: '#ffffff12', margin: '0', borderStyle: 'solid', borderWidth: '1px 0 0 0' }} />
       <Suspense fallback={<section className="trash-panel" aria-busy="true"><p className="gemini-help">Çöp kutusu hazırlanıyor…</p></section>}><TrashPanel onRestore={onRestoreTrash} /></Suspense>
     </div>

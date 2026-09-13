@@ -6,6 +6,7 @@ async function finishOnboarding(page: import('@playwright/test').Page) {
   await page.getByLabel('Adın').fill('Test Kullanıcısı')
   await page.getByRole('button', { name: /^Yazılımcı/ }).click()
   await page.getByRole('button', { name: 'Momentum’u başlat' }).click()
+  await expect(page.getByRole('dialog', { name: 'Momentum ilk kurulumu' })).toBeHidden()
   await expect(page.getByRole('heading', { name: /Merhaba|Günaydın|İyi/ })).toBeVisible()
 }
 

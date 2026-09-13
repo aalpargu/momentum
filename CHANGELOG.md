@@ -1,5 +1,14 @@
 # Değişiklik günlüğü
 
+## 1.2.0 — 2026-09-13
+
+- Supabase Cron ve standart Web Push ile uygulama kapalıyken çalışan günlük/haftalık hatırlatıcılar.
+- OneDrive, Google Drive veya başka bir senkronize yerel klasöre otomatik günlük JSON yedeği.
+- Push abonelikleri için kullanıcı bazlı RLS, zaman dilimi doğrulaması, hesap çıkışında cihaz bağlantısını kaldırma ve sahipsiz abonelik temizliği.
+- Masaüstü Chromium/Firefox/WebKit ile mobil Chromium/WebKit E2E matrisi.
+- Ücretsiz canlılık kontrolüne push yapılandırması ve yetkisiz cron çağrısı denetimi.
+- Gizlilik, kullanım koşulları, destek ve ücretsiz işletim notları güncellendi.
+
 ## 1.1.0 — 2026-09-13
 
 - Desteklenen silme işlemleri için 30 günlük, cihazda tutulan geri dönüşüm kutusu.

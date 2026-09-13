@@ -2,7 +2,7 @@
 
 Momentum; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekran süresini ve uzun vadeli hedefleri tek yerde takip eden local-first bir React PWA'dır.
 
-> Durum: v1.1.0. Hesap, RLS korumalı bulut senkronizasyonu ve sunucu taraflı AI özellikleri Supabase üzerinden çalışır. Proje, ücretli alan adı veya ücretli servis gerektirmeden sağlayıcıların ücretsiz katmanlarına göre yapılandırılmıştır.
+> Durum: v1.2.0. Hesap, RLS korumalı bulut senkronizasyonu, sunucu taraflı AI ve isteğe bağlı Web Push hatırlatıcıları Supabase üzerinden çalışır. Proje, ücretli alan adı veya ücretli servis gerektirmeden sağlayıcıların ücretsiz katmanlarına göre yapılandırılmıştır.
 
 **Canlı demo:** [momentum-kappa-sepia.vercel.app](https://momentum-kappa-sepia.vercel.app)
 
@@ -16,11 +16,12 @@ Momentum; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekran 
 - Takvim blokları, `.ics` dışa aktarma ve evrensel hızlı kayıt
 - Ekran süresi kaydı, görsel sıkıştırma ve Gemini destekli sınıflandırma
 - Günlük, haftalık ve aylık üretkenlik raporları
-- IndexedDB ana deposu, otomatik kurtarma sürümleri ve doğrulanan JSON yedekleri
+- IndexedDB ana deposu, otomatik kurtarma sürümleri, doğrulanan JSON yedekleri ve seçilen OneDrive/Google Drive yerel klasörüne otomatik kopya
 - Açık/koyu/sistem teması, erişilebilir klavye akışları ve mobil alt gezinme
 - Sürümlü PWA kurulumu, çevrimdışı uygulama kabuğu ve güncelleme bildirimi
 - İsteğe bağlı hesap, cihazlar arası çakışma korumalı senkronizasyon ve hesap silme
 - 30 günlük yerel çöp kutusu, açık izinli hata raporu ve cihaz bazında analiz kapatma
+- Uygulama kapalıyken de çalışan, hesap ve cihaz bazında kapatılabilen standart Web Push hatırlatıcıları
 
 ## Mimari
 
@@ -29,6 +30,7 @@ React PWA ──önce──> IndexedDB
     │
     ├── isteğe bağlı oturum ──> Supabase Auth
     ├── revizyon kontrollü yedek ──> PostgreSQL + RLS
+    ├── zamanlanmış hatırlatıcı ──> Supabase Cron + Web Push
     └── ekran görüntüsü ──> kimlik doğrulanan Edge Function ──> Gemini
 ```
 
@@ -42,6 +44,7 @@ Uygulama hesap olmadan çalışır. Hesap bağlandığında yerel kayıt ve bulu
 - Supabase Edge Functions üzerinden Gemini API (v1.0)
 - Node test runner ve GitHub Actions (v1.0)
 - Gizlilik filtreli Vercel Web Analytics ve Supabase geri bildirim tablosu (v1.1)
+- File System Access tabanlı cihaz dışı yedek ve Supabase Cron/Web Push (v1.2)
 
 ## Yerel geliştirme
 
@@ -61,7 +64,7 @@ npm run check
 Kritik masaüstü ve mobil kullanıcı akışları:
 
 ```bash
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 npm run test:e2e
 ```
 
@@ -77,11 +80,11 @@ Supabase veritabanı, Auth ve Edge Function kurulumu için [Supabase kurulum not
 
 Mevcut production ortamı Vercel üzerindedir; Supabase Auth yönlendirmeleri canlı alan adına bağlıdır. Yeni sürümü yayımlamak için aşağıdaki yapılandırmayı doğrulayıp ana dal dağıtımını çalıştırın.
 
-1. Ücretsiz Supabase projesini oluşturup migration'ları ve Edge Function'ı deploy edin.
+1. Ücretsiz Supabase projesini oluşturup migration'ları ve Edge Function'ları deploy edin.
 2. Projeyi GitHub'a gönderin ve Vercel'e bağlayın.
 3. Vercel Environment Variables alanına `VITE_SUPABASE_URL` ile `VITE_SUPABASE_PUBLISHABLE_KEY` değerlerini ekleyin.
 4. Vercel adresini Supabase Authentication URL Configuration alanındaki Site URL ve Redirect URLs listesine ekleyin.
-5. Canlı uygulamada yeni bir deneme hesabıyla giriş, iki yönlü senkronizasyon ve AI analizini doğrulayın.
+5. Canlı uygulamada kendi hesabınla giriş, iki yönlü senkronizasyon, bildirim izni ve AI analizini doğrulayın. Kalıcı test hesabı veya service-role anahtarı kullanan test uç noktası oluşturmayın.
 
 Ücret politikası: Vercel Hobby, Supabase Free ve herkese açık depolar için GitHub Actions ücretsiz kotası dışına çıkılmamalıdır. Özel alan adı, ücretli izleme hizmeti veya plan yükseltmesi zorunlu değildir. Sağlayıcı limitleri dolarsa kapasite satın almak yerine özellik geçici olarak sınırlandırılmalıdır.
 
@@ -96,6 +99,8 @@ Vercel güvenlik başlıkları [vercel.json](vercel.json), her push/PR doğrulam
 - Ekran görüntüleri analiz amacı dışında kalıcı olarak saklanmaz.
 - Anonim sayfa istatistikleri ayarlardan kapatılabilir; üretkenlik içeriği analiz olaylarına eklenmez.
 - Geri bildirim yalnız kullanıcı açıkça gönderdiğinde yazılır ve sunucuda günlük hız sınırına tabidir.
+- Push abonelikleri hesaba bağlıdır; tarayıcı uç noktaları yalnız sunucu fonksiyonu tarafından işlenir ve oturum kapatılırken cihaz bağlantısı kaldırılır.
+- Klasör yedeği yalnız kullanıcı bir klasör seçip yazma izni verdiğinde çalışır; uygulama klasörün diğer içeriklerini yüklemez.
 
 ## Yol haritası
 
@@ -106,3 +111,6 @@ Vercel güvenlik başlıkları [vercel.json](vercel.json), her push/PR doğrulam
 - [x] Gemini çağrısını kimlik doğrulanan Edge Function'a taşıma
 - [x] Test, tip kontrolü ve build için GitHub Actions
 - [x] Supabase ve Vercel production ortamlarını oluşturup canlıya alma
+- [x] Uygulama kapalıyken Web Push hatırlatıcıları
+- [x] Ücretsiz, kullanıcı denetimli cihaz dışı klasör yedekleri
+- [x] Chromium, Firefox ve WebKit tarayıcı matrisi

@@ -43,7 +43,7 @@ jobs:
           cache: npm
       - name: Bağımlılıkları kur
         run: npm ci
-      - name: Chromium kur
-        run: npx playwright install --with-deps chromium
-      - name: Kritik kullanıcı akışlarını çalıştır
+      - name: Chromium, Firefox ve WebKit kur
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Kritik kullanıcı akışlarını tüm tarayıcılarda çalıştır
         run: npm run test:e2e

@@ -48,6 +48,17 @@ async function hashPayload(payload: unknown) {
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
+async function detachCurrentPush(removeRemote?: (endpoint: string) => Promise<void>) {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return
+  try {
+    const registration = await navigator.serviceWorker.ready
+    const subscription = await registration.pushManager.getSubscription()
+    if (!subscription) return
+    if (removeRemote) await removeRemote(subscription.endpoint).catch(() => undefined)
+    await subscription.unsubscribe().catch(() => undefined)
+  } catch { /* Oturum kapatma, tarayıcı push desteğinden bağımsız tamamlanabilmeli. */ }
+}
+
 export function useCloudSync({ state, storageReady, disabled, validatePayload, replaceState }: {
   state: AppState
   storageReady: boolean
@@ -165,6 +176,7 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
     setBusy(true); setMessage('Çıkış yapılıyor…'); operationRef.current += 1
     try {
       const api = await import('../lib/cloud')
+      await detachCurrentPush(api.removePushSubscription)
       await api.signOutFromCloud()
       await refreshAccount(null)
       setMessage('Çıkış yapıldı. Yerel verilerin bu cihazda duruyor.')
@@ -176,6 +188,7 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
     setBusy(true); setMessage('Tüm cihazlardaki oturumlar kapatılıyor…'); operationRef.current += 1
     try {
       const api = await import('../lib/cloud')
+      await detachCurrentPush(api.removePushSubscription)
       await api.signOutEverywhere()
       await refreshAccount(null)
       setMessage('Tüm cihazlardaki oturumlar kapatıldı. Yerel verilerin bu cihazda duruyor.')
@@ -213,6 +226,7 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
     try {
       const api = await import('../lib/cloud')
       await api.deleteCloudAccount()
+      await detachCurrentPush()
       localStorage.removeItem(cloudLinkStorageKey)
       await refreshAccount(null)
       setMessage('Hesap ve bulut verileri silindi. Bu cihazdaki yerel veriler korunuyor.')

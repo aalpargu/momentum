@@ -28,3 +28,15 @@ jobs:
           status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 \
             --request POST https://fafmrvzpvackjyeonnfu.supabase.co/functions/v1/analyze-screen-time)"
           test "$status" = "401"
+      - name: Ücretsiz Web Push yapılandırmasını doğrula
+        run: |
+          curl --fail --silent --show-error --max-time 20 --retry 2 \
+            --request POST --header 'Content-Type: application/json' \
+            --data '{"action":"public-key"}' \
+            https://fafmrvzpvackjyeonnfu.supabase.co/functions/v1/push-reminders \
+            | grep --quiet 'publicKey'
+          status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 \
+            --request POST --header 'Content-Type: application/json' \
+            --data '{"action":"dispatch"}' \
+            https://fafmrvzpvackjyeonnfu.supabase.co/functions/v1/push-reminders)"
+          test "$status" = "401"
