@@ -48,6 +48,13 @@ function notification(kind: PushRow['notification_kind']) {
   return { title: 'Haftalık Momentum özeti', body: 'Kazançlarını, sürtünmeleri ve gelecek haftanın odağını gözden geçir.', tag: 'momentum-weekly' }
 }
 
+function claimedDateColumn(kind: PushRow['notification_kind']) {
+  if (kind === 'plan') return 'last_plan_date'
+  if (kind === 'habits') return 'last_habits_date'
+  if (kind === 'reflection') return 'last_reflection_date'
+  return 'last_weekly_date'
+}
+
 export default {
   fetch: async (request: Request) => {
     if (request.method === 'OPTIONS') return new Response('ok', { headers: headers(request) })
@@ -83,6 +90,8 @@ export default {
           if (statusCode === 404 || statusCode === 410) {
             await admin.from('push_subscriptions').delete().eq('id', row.subscription_id)
             removed += 1
+          } else {
+            await admin.from('push_subscriptions').update({ [claimedDateColumn(row.notification_kind)]: null }).eq('id', row.subscription_id)
           }
         }
       }
@@ -94,6 +103,12 @@ export default {
     const userClient = createClient(url, anonKey, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false, autoRefreshToken: false } })
     const { data: userData, error: userError } = await userClient.auth.getUser()
     if (userError || !userData.user) return response(request, { error: 'Oturum doğrulanamadı.' }, 401)
+
+    if (body.action === 'unsubscribe-all') {
+      const { error } = await admin.from('push_subscriptions').delete().eq('user_id', userData.user.id)
+      return error ? response(request, { error: 'Cihaz abonelikleri kaldırılamadı.' }, 500) : response(request, { ok: true })
+    }
+
     const endpoint = typeof body.endpoint === 'string' ? body.endpoint : ''
     if (!endpoint.startsWith('https://') || endpoint.length > 2048) return response(request, { error: 'Push aboneliği geçersiz.' }, 400)
 
@@ -113,6 +128,11 @@ export default {
     const values = { user_id: userData.user.id, endpoint, p256dh: body.p256dh.slice(0, 255), auth_key: body.auth.slice(0, 255), timezone: body.timezone, enabled: preferences.enabled, plan_time: preferences.planTime, habits_time: preferences.habitsTime, reflection_time: preferences.reflectionTime, weekly_enabled: preferences.weeklyEnabled, weekly_time: preferences.weeklyTime }
     const { data: existing } = await admin.from('push_subscriptions').select('user_id').eq('endpoint', endpoint).maybeSingle()
     if (existing && existing.user_id !== userData.user.id) return response(request, { error: 'Bu cihaz aboneliği başka bir hesaba bağlı.' }, 409)
+    if (!existing) {
+      const { count, error: countError } = await admin.from('push_subscriptions').select('id', { count: 'exact', head: true }).eq('user_id', userData.user.id)
+      if (countError) return response(request, { error: 'Cihaz sınırı doğrulanamadı.' }, 500)
+      if ((count ?? 0) >= 5) return response(request, { error: 'En fazla beş cihaz bağlanabilir.' }, 429)
+    }
     const query = existing
       ? admin.from('push_subscriptions').update(values).eq('endpoint', endpoint).eq('user_id', userData.user.id)
       : admin.from('push_subscriptions').insert(values)

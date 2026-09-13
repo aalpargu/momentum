@@ -1,5 +1,11 @@
 # Değişiklik günlüğü
 
+## 1.2.1 — 2026-09-13
+
+- Tüm cihazlardan çıkışta hesaba bağlı bütün Web Push kayıtları temizlenir.
+- Geçici push teslim hataları aynı hatırlatma penceresinde güvenle yeniden denenir.
+- Push aboneliği yazımları Edge Function ile sınırlandı ve hesap başına beş cihaz sınırı eklendi.
+
 ## 1.2.0 — 2026-09-13
 
 - Supabase Cron ve standart Web Push ile uygulama kapalıyken çalışan günlük/haftalık hatırlatıcılar.

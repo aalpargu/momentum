@@ -240,6 +240,10 @@ export async function removePushSubscription(endpoint: string) {
   await invokePushReminders({ action: 'unsubscribe', endpoint })
 }
 
+export async function removeAllPushSubscriptions() {
+  await invokePushReminders({ action: 'unsubscribe-all' })
+}
+
 export async function updatePushReminderPreferences(endpoint: string, timezone: string, preferences: ReminderSettings) {
   await invokePushReminders({ action: 'preferences', endpoint, timezone, preferences })
 }

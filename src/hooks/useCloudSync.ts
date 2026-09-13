@@ -188,7 +188,8 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
     setBusy(true); setMessage('Tüm cihazlardaki oturumlar kapatılıyor…'); operationRef.current += 1
     try {
       const api = await import('../lib/cloud')
-      await detachCurrentPush(api.removePushSubscription)
+      await api.removeAllPushSubscriptions()
+      await detachCurrentPush()
       await api.signOutEverywhere()
       await refreshAccount(null)
       setMessage('Tüm cihazlardaki oturumlar kapatıldı. Yerel verilerin bu cihazda duruyor.')

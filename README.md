@@ -2,7 +2,7 @@
 
 Momentum; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekran süresini ve uzun vadeli hedefleri tek yerde takip eden local-first bir React PWA'dır.
 
-> Durum: v1.2.0. Hesap, RLS korumalı bulut senkronizasyonu, sunucu taraflı AI ve isteğe bağlı Web Push hatırlatıcıları Supabase üzerinden çalışır. Proje, ücretli alan adı veya ücretli servis gerektirmeden sağlayıcıların ücretsiz katmanlarına göre yapılandırılmıştır.
+> Durum: v1.2.1. Hesap, RLS korumalı bulut senkronizasyonu, sunucu taraflı AI ve isteğe bağlı Web Push hatırlatıcıları Supabase üzerinden çalışır. Proje, ücretli alan adı veya ücretli servis gerektirmeden sağlayıcıların ücretsiz katmanlarına göre yapılandırılmıştır.
 
 **Canlı demo:** [momentum-kappa-sepia.vercel.app](https://momentum-kappa-sepia.vercel.app)
 
