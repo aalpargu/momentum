@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Kaynak kodu al
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: CodeQL başlat
         uses: github/codeql-action/init@v4
         with:
