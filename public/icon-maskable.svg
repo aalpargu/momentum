@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Momentum">
+  <defs>
+    <linearGradient id="bg" x1="60" y1="40" x2="452" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#202b53"/>
+      <stop offset="1" stop-color="#0c1020"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="138" y1="112" x2="377" y2="395" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b1f0e5"/>
+      <stop offset="1" stop-color="#5eeac0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="18"/>
+  <path d="M148 354V158h47l61 100 61-100h47v196h-49V238l-59 94-59-94v116z" fill="url(#mark)"/>
+  <path d="M348 115a160 160 0 0 1 66 86" fill="none" stroke="#75e7c2" stroke-width="18" stroke-linecap="round"/>
+</svg>

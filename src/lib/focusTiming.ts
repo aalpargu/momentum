@@ -1,6 +1,6 @@
 import type { Area, FocusSegment, FocusSession } from './domain'
 
-type ActiveTiming = { id: string; title: string; area: Area; segments: { startedAt: string; endedAt?: string }[] }
+type ActiveTiming = { id: string; title: string; area: Area; segments: { startedAt: string; endedAt?: string }[]; intention?: string }
 type Timing = Pick<FocusSession, 'source' | 'timerSessionId' | 'segments'>
 
 // Split at local hour boundaries, preserving the recording timezone and pauses.
@@ -28,7 +28,7 @@ export function buildTimedFocusSessions(active: ActiveTiming, nowMs: number): Fo
   return values.flatMap(([date, segments], index) => {
     const seconds = index === values.length - 1 ? remaining : Math.floor(duration(segments) / 1000)
     remaining -= seconds
-    return seconds > 0 ? [{ id: `${active.id}-${date}`, title: active.title, area: active.area, seconds, startedAt: segments[0].startedAt, date, source: 'timer' as const, timerSessionId: active.id, segments }] : []
+    return seconds > 0 ? [{ id: `${active.id}-${date}`, title: active.title, area: active.area, seconds, startedAt: segments[0].startedAt, date, source: 'timer' as const, timerSessionId: active.id, segments, ...(active.intention ? { intention: active.intention } : {}) }] : []
   })
 }
 

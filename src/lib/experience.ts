@@ -1,6 +1,6 @@
 import type { AppState, Area, CalendarBlock, RecentEntry } from './domain'
+import { normalizeArea } from './areas.ts'
 
-const validAreas: Area[] = ['Eğitim', 'Kariyer', 'İngilizce', 'Sağlık', 'Bilgi']
 export const saveFailure = 'Kaydedilemedi. Girdiğin değerler korunuyor; depolama alanını kontrol edip tekrar dene.'
 
 export function parseQuickEntry(text: string, categories: { title: string; area: Area }[], fallback: Area): RecentEntry {
@@ -29,7 +29,7 @@ export function shiftDay(date: string, amount: number) {
   return next.toISOString().slice(0, 10)
 }
 export function validCalendarBlock(block: CalendarBlock) {
-  return Boolean(block.id && block.title.trim() && block.title.length <= 100 && validAreas.includes(block.area)
+  return Boolean(block.id && block.title.trim() && block.title.length <= 100 && normalizeArea(block.area, '')
     && /^\d{4}-\d{2}-\d{2}$/.test(block.date) && Number.isFinite(Date.parse(block.date + 'T12:00:00Z'))
     && new Date(block.date + 'T12:00:00Z').toISOString().slice(0, 10) === block.date
     && Number.isInteger(block.startMinute) && block.startMinute >= 0

@@ -4,7 +4,8 @@ class RequestError extends Error {
   constructor(public status: number, message: string) { super(message) }
 }
 
-type ScreenTimeEntry = { app: string; minutes: number }
+type ScreenTimeKind = 'passive' | 'useful' | 'necessary' | 'unclassified'
+type ScreenTimeEntry = { app: string; minutes: number; kind: ScreenTimeKind }
 
 function validateImagePayload(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RequestError(400, 'Geçersiz istek.')
@@ -22,11 +23,12 @@ function validateEntries(value: unknown): ScreenTimeEntry[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > 200) throw new RequestError(502, 'Gemini geçerli bir uygulama listesi döndürmedi.')
   return value.map((candidate) => {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) throw new RequestError(502, 'Gemini cevabında geçersiz bir kayıt var.')
-    const item = candidate as { app?: unknown; minutes?: unknown }
+    const item = candidate as { app?: unknown; minutes?: unknown; kind?: unknown }
     const app = typeof item.app === 'string' ? item.app.trim() : ''
     const minutes = Number(item.minutes)
-    if (!app || app.length > 100 || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440) throw new RequestError(502, 'Gemini cevabındaki uygulama veya süre geçersiz.')
-    return { app, minutes }
+    const kind = String(item.kind)
+    if (!app || app.length > 100 || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440 || !['passive', 'useful', 'necessary', 'unclassified'].includes(kind)) throw new RequestError(502, 'Gemini cevabındaki uygulama, süre veya tür geçersiz.')
+    return { app, minutes, kind: kind as ScreenTimeKind }
   })
 }
 
@@ -43,10 +45,10 @@ async function callGemini(image: { mimeType: string; data: string }) {
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       signal: controller.signal,
       body: JSON.stringify({
-        contents: [{ parts: [{ text: 'Bu ekran süresi görüntüsündeki tüm uygulama adlarını ve kullanım sürelerini dakika cinsinden çıkar. Her uygulamayı dahil et.' }, { inlineData: { mimeType: image.mimeType, data: image.data } }] }],
+        contents: [{ parts: [{ text: 'Bu ekran süresi görüntüsündeki tüm uygulama adlarını ve kullanım sürelerini dakika cinsinden çıkar. Her uygulamayı dahil et. Her kaydı passive (eğlence/sosyal medya), useful (üretken/öğrenme), necessary (zorunlu araç) veya emin değilsen unclassified olarak sınıflandır.' }, { inlineData: { mimeType: image.mimeType, data: image.data } }] }],
         generationConfig: {
           responseMimeType: 'application/json',
-          responseSchema: { type: 'ARRAY', items: { type: 'OBJECT', properties: { app: { type: 'STRING' }, minutes: { type: 'INTEGER', minimum: 1, maximum: 1440 } }, required: ['app', 'minutes'] } },
+          responseSchema: { type: 'ARRAY', items: { type: 'OBJECT', properties: { app: { type: 'STRING' }, minutes: { type: 'INTEGER', minimum: 1, maximum: 1440 }, kind: { type: 'STRING', enum: ['passive', 'useful', 'necessary', 'unclassified'] } }, required: ['app', 'minutes', 'kind'] } },
         },
       }),
     })

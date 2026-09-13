@@ -23,9 +23,9 @@ button:focus:not(:focus-visible),input:focus:not(:focus-visible),select:focus:no
   .avatar,.focus-choice,.quick-add-form input,.quick-add-form button,.score-help,.topbar .main-nav button,.quiet-button,.text-button,.today-habit-actions button,.habit-actions button,.plan-item-actions button,.goal-actions button,.history-editor button,.history-add-form button,.management-actions button,.management-add button,.settings-tabs button,.data-settings-button,.screen-time-entry button,.screen-time-manual button { min-height: 44px; }
   .avatar,.quick-add-form button,.today-habit-actions button { min-width: 44px; }
   .modal-close { width: 44px; height: 44px; }
-  .eyebrow { color: #a4afca; font-size: 12px; }
+  .eyebrow { color: #a4afca; font-size: 13px; }
   .subtle,.hero-copy { color: #aab5cf; font-size: 13px; }
-  .today-habit-name strong,.habit-card > p,.progress-label,.summary-stats span,.plan-item,.reflection-form label,.settings-form > label:not(.toggle-label),.reminder-grid label { font-size: 12px; }
-  .today-habit-name small,.habit-goals small,.status-badge,.management-actions button,.management-add button { font-size: 12px; }
+  .today-habit-name strong,.habit-card > p,.progress-label,.summary-stats span,.plan-item,.reflection-form label,.settings-form > label:not(.toggle-label),.reminder-grid label { font-size: 13px; }
+  .today-habit-name small,.habit-goals small,.status-badge,.management-actions button,.management-add button { font-size: 13px; }
   input,select,textarea { font-size: 16px !important; }
 }

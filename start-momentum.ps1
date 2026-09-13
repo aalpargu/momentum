@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$appDir = 'C:\Users\alpar\Documents\Codex\2026-08-19\kendime-bir-verimlilik-uygulamas-kodlamak-istiyorum'
+$appDir = $PSScriptRoot
 $port = 5173
 $url = "http://127.0.0.1:$port"
 $server = Join-Path $appDir 'serve.cjs'

@@ -2,6 +2,7 @@
   "name": "Momentum — Kendine yatırım yap",
   "short_name": "Momentum",
   "description": "Focus, alışkanlık ve uzun vadeli gelişim takip uygulaması.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -14,7 +15,35 @@
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    { "name": "Odak ekranını aç", "short_name": "Odak", "url": "/?tab=today", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Günlüğü aç", "short_name": "Günlük", "url": "/?tab=journal", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }

@@ -7,6 +7,5 @@ export function greetingFor(date: Date) {
 }
 
 export function preferredName(name?: string) {
-  const trimmed = name?.trim() ?? ''
-  return !trimmed || trimmed.toLocaleLowerCase('tr-TR') === 'alpar' ? 'Alpargu' : trimmed.slice(0, 60)
+  return (name?.trim() ?? '').slice(0, 60)
 }

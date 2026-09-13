@@ -34,7 +34,7 @@ const securityHeaders = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
   'Cross-Origin-Resource-Policy': 'same-origin',
-  'Content-Security-Policy': "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  'Content-Security-Policy': "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co",
 }
 
 class HttpError extends Error {
@@ -212,14 +212,14 @@ async function analyzeScreenTime(body) {
   const key = loadGeminiKey()
   if (!key) throw new HttpError(409, "Önce Ayarlar'dan Gemini bağlantısını kur.")
   const image = validateImagePayload(body)
-  const geminiBody = { contents: [{ parts: [{ text: 'Bu ekran süresi görüntüsündeki tüm uygulama adlarını ve kullanım sürelerini dakika cinsinden çıkar. Her uygulamayı dahil et.' }, { inlineData: { mimeType: image.mimeType, data: image.data } }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'ARRAY', items: { type: 'OBJECT', properties: { app: { type: 'STRING' }, minutes: { type: 'INTEGER', minimum: 1, maximum: 1440 } }, required: ['app', 'minutes'] } } } }
+  const geminiBody = { contents: [{ parts: [{ text: 'Bu ekran süresi görüntüsündeki tüm uygulama adlarını ve kullanım sürelerini dakika cinsinden çıkar. Her uygulamayı dahil et. Her kaydı passive, useful, necessary veya emin değilsen unclassified olarak sınıflandır.' }, { inlineData: { mimeType: image.mimeType, data: image.data } }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'ARRAY', items: { type: 'OBJECT', properties: { app: { type: 'STRING' }, minutes: { type: 'INTEGER', minimum: 1, maximum: 1440 }, kind: { type: 'STRING', enum: ['passive', 'useful', 'necessary', 'unclassified'] } }, required: ['app', 'minutes', 'kind'] } } } }
   const { response, body: result } = await fetchJsonWithTimeout('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(geminiBody) })
   if (!response.ok) throw new HttpError(response.status >= 500 ? 502 : response.status, googleErrorMessage(response, result))
   const text = result?.candidates?.[0]?.content?.parts?.[0]?.text
   if (typeof text !== 'string') throw new HttpError(502, 'Gemini geçerli bir cevap döndürmedi.')
   let entries
   try { entries = JSON.parse(text) } catch { throw new HttpError(502, 'Gemini cevabı JSON olarak okunamadı.') }
-  if (!Array.isArray(entries)) throw new HttpError(502, 'Gemini geçerli bir uygulama listesi döndürmedi.')
+  if (!Array.isArray(entries) || entries.some(entry => !entry || typeof entry.app !== 'string' || !Number.isInteger(entry.minutes) || !['passive', 'useful', 'necessary', 'unclassified'].includes(entry.kind))) throw new HttpError(502, 'Gemini geçerli bir uygulama listesi döndürmedi.')
   return entries
 }
 

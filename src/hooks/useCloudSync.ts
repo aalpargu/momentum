@@ -20,6 +20,11 @@ export type CloudSyncController = {
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  signOutEverywhere: () => Promise<void>
+  resetPassword: (email: string) => Promise<void>
+  updateEmail: (email: string) => Promise<void>
+  updatePassword: (password: string) => Promise<void>
+  deleteAccount: () => Promise<void>
   uploadLocal: () => Promise<void>
   downloadCloud: () => Promise<void>
   retry: () => Promise<void>
@@ -167,6 +172,54 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
     finally { setBusy(false) }
   }
 
+  const signOutEverywhere = async () => {
+    setBusy(true); setMessage('Tüm cihazlardaki oturumlar kapatılıyor…'); operationRef.current += 1
+    try {
+      const api = await import('../lib/cloud')
+      await api.signOutEverywhere()
+      await refreshAccount(null)
+      setMessage('Tüm cihazlardaki oturumlar kapatıldı. Yerel verilerin bu cihazda duruyor.')
+    } catch (error) { setPhase(accountRef.current ? 'error' : 'local'); setMessage(error instanceof Error ? error.message : 'Oturumlar kapatılamadı.') }
+    finally { setBusy(false) }
+  }
+
+  const resetPassword = async (email: string) => {
+    setBusy(true); setMessage('Parola sıfırlama bağlantısı gönderiliyor…')
+    try { const api = await import('../lib/cloud'); await api.sendPasswordReset(email); setMessage('Parola sıfırlama bağlantısı e-posta adresine gönderildi.') }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Bağlantı gönderilemedi.') }
+    finally { setBusy(false) }
+  }
+
+  const updateEmail = async (email: string) => {
+    setBusy(true); setMessage('E-posta adresi güncelleniyor…')
+    try {
+      const api = await import('../lib/cloud')
+      const next = await api.updateCloudEmail(email)
+      if (next) { setAccount(next); accountRef.current = next }
+      setMessage('Onay bağlantısı yeni e-posta adresine gönderildi.')
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'E-posta güncellenemedi.') }
+    finally { setBusy(false) }
+  }
+
+  const updatePassword = async (password: string) => {
+    setBusy(true); setMessage('Parola güncelleniyor…')
+    try { const api = await import('../lib/cloud'); await api.updateCloudPassword(password); setMessage('Parola güncellendi.') }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Parola güncellenemedi.') }
+    finally { setBusy(false) }
+  }
+
+  const deleteAccount = async () => {
+    setBusy(true); setMessage('Hesap ve bulut verileri kalıcı olarak siliniyor…'); operationRef.current += 1
+    try {
+      const api = await import('../lib/cloud')
+      await api.deleteCloudAccount()
+      localStorage.removeItem(cloudLinkStorageKey)
+      await refreshAccount(null)
+      setMessage('Hesap ve bulut verileri silindi. Bu cihazdaki yerel veriler korunuyor.')
+    } catch (error) { setPhase('error'); setMessage(error instanceof Error ? error.message : 'Hesap silinemedi.') }
+    finally { setBusy(false) }
+  }
+
   const uploadLocal = async () => {
     const current = accountRef.current
     if (!current || disabled) return
@@ -209,5 +262,5 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
 
   const retry = async () => { await refreshAccount(accountRef.current) }
 
-  return { configured: cloudConfigured, account, record, phase, busy, message, disabled, signIn, signUp, signOut, uploadLocal, downloadCloud, retry }
+  return { configured: cloudConfigured, account, record, phase, busy, message, disabled, signIn, signUp, signOut, signOutEverywhere, resetPassword, updateEmail, updatePassword, deleteAccount, uploadLocal, downloadCloud, retry }
 }

@@ -1,6 +1,8 @@
 node_modules/
 dist/
 work/
+test-results/
+playwright-report/
 .env
 .env.*
 !.env.example
@@ -9,5 +11,7 @@ work/
 *.tsbuildinfo
 .supabase/
 supabase/.temp/
+.vercel/
+.vercel-global/
 .DS_Store
 Thumbs.db

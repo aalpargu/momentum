@@ -12,10 +12,10 @@ test('greeting follows local clock boundaries, including 02:00 and midnight', ()
   ] as const) assert.equal(greetingFor(new Date(2026, 8, 2, hour, minute)).message, expected)
 })
 
-test('profile uses Alpargu for empty and legacy Alpar names', () => {
-  assert.equal(preferredName(), 'Alpargu')
-  assert.equal(preferredName('  '), 'Alpargu')
-  assert.equal(preferredName(' Alpar '), 'Alpargu')
+test('profile keeps a supplied name and leaves a new profile empty', () => {
+  assert.equal(preferredName(), '')
+  assert.equal(preferredName('  '), '')
+  assert.equal(preferredName(' Ada '), 'Ada')
   assert.equal(preferredName('Alpargu'), 'Alpargu')
   assert.equal(preferredName('Deniz'), 'Deniz')
 })

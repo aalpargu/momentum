@@ -12,9 +12,9 @@ test('plain text accepts multiple durations on the same dated line', () => {
   const result = parseHistoricalText('2.09.2026 -> 30 dk kitap 2 saat veri yapıları ve algoritmalar(DSA)\n3.09.2026 -> 35 dk Instagram [faydasız]')
   assert.deepEqual(result.errors, [])
   assert.deepEqual(result.records.map(({ date, title, minutes, kind, area }) => ({ date, title, minutes, kind, area })), [
-    { date: '2026-09-02', title: 'kitap', minutes: 30, kind: 'focus', area: 'Bilgi' },
+    { date: '2026-09-02', title: 'kitap', minutes: 30, kind: 'focus', area: 'Öğrenme' },
     { date: '2026-09-02', title: 'veri yapıları ve algoritmalar(DSA)', minutes: 120, kind: 'focus', area: 'Eğitim' },
-    { date: '2026-09-03', title: 'Instagram', minutes: 35, kind: 'passive', area: 'Bilgi' },
+    { date: '2026-09-03', title: 'Instagram', minutes: 35, kind: 'passive', area: 'Kişisel' },
   ])
 })
 

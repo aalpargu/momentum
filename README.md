@@ -2,7 +2,7 @@
 
 Momentum; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekran süresini ve uzun vadeli hedefleri tek yerde takip eden local-first bir React PWA'dır.
 
-> Durum: v1.0 canlıda. Hesap, RLS korumalı bulut senkronizasyonu ve sunucu taraflı AI özellikleri Supabase üzerinden çalışır.
+> Durum: v1.1.0. Hesap, RLS korumalı bulut senkronizasyonu ve sunucu taraflı AI özellikleri Supabase üzerinden çalışır. Proje, ücretli alan adı veya ücretli servis gerektirmeden sağlayıcıların ücretsiz katmanlarına göre yapılandırılmıştır.
 
 **Canlı demo:** [momentum-kappa-sepia.vercel.app](https://momentum-kappa-sepia.vercel.app)
 
@@ -10,13 +10,17 @@ Momentum; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekran 
 
 ## Öne çıkanlar
 
-- Duraklatılabilir tam ekran odak zamanlayıcısı
-- Minimum/ideal hedefli alışkanlık takibi ve seriler
-- Günlük plan, değerlendirme, hedef ve takvim blokları
-- Ekran süresi kaydı ve Gemini ile ekran görüntüsü analizi
+- Niyet ve kapanış notu destekli, mola/tur ayarlı tam ekran odak zamanlayıcısı
+- Gün seçimi ve geçici dondurma destekli minimum/ideal alışkanlık takibi
+- Dünden öncelik taşıma, haftalık değerlendirme ve kilometre taşlı hedefler
+- Takvim blokları, `.ics` dışa aktarma ve evrensel hızlı kayıt
+- Ekran süresi kaydı, görsel sıkıştırma ve Gemini destekli sınıflandırma
 - Günlük, haftalık ve aylık üretkenlik raporları
 - IndexedDB ana deposu, otomatik kurtarma sürümleri ve doğrulanan JSON yedekleri
-- PWA kurulumu ve çevrimdışı uygulama kabuğu
+- Açık/koyu/sistem teması, erişilebilir klavye akışları ve mobil alt gezinme
+- Sürümlü PWA kurulumu, çevrimdışı uygulama kabuğu ve güncelleme bildirimi
+- İsteğe bağlı hesap, cihazlar arası çakışma korumalı senkronizasyon ve hesap silme
+- 30 günlük yerel çöp kutusu, açık izinli hata raporu ve cihaz bazında analiz kapatma
 
 ## Mimari
 
@@ -37,6 +41,7 @@ Uygulama hesap olmadan çalışır. Hesap bağlandığında yerel kayıt ve bulu
 - Supabase Auth, PostgreSQL ve Row Level Security (v1.0)
 - Supabase Edge Functions üzerinden Gemini API (v1.0)
 - Node test runner ve GitHub Actions (v1.0)
+- Gizlilik filtreli Vercel Web Analytics ve Supabase geri bildirim tablosu (v1.1)
 
 ## Yerel geliştirme
 
@@ -53,6 +58,13 @@ npm run dev
 npm run check
 ```
 
+Kritik masaüstü ve mobil kullanıcı akışları:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
 ## Ortam değişkenleri
 
 `.env.example` dosyasını `.env.local` adıyla kopyalayın ve Supabase projenizin browser için güvenli değerlerini girin. Secret veya service-role anahtarlarını `VITE_` ile başlayan değişkenlere koymayın; bu değişkenler tarayıcı paketine dahil edilir.
@@ -63,13 +75,15 @@ Supabase veritabanı, Auth ve Edge Function kurulumu için [Supabase kurulum not
 
 ## Production deploy
 
-Production ortamı Vercel üzerinde yayında; Supabase Auth yönlendirmeleri canlı alan adına bağlıdır.
+Mevcut production ortamı Vercel üzerindedir; Supabase Auth yönlendirmeleri canlı alan adına bağlıdır. Yeni sürümü yayımlamak için aşağıdaki yapılandırmayı doğrulayıp ana dal dağıtımını çalıştırın.
 
 1. Ücretsiz Supabase projesini oluşturup migration'ları ve Edge Function'ı deploy edin.
 2. Projeyi GitHub'a gönderin ve Vercel'e bağlayın.
 3. Vercel Environment Variables alanına `VITE_SUPABASE_URL` ile `VITE_SUPABASE_PUBLISHABLE_KEY` değerlerini ekleyin.
 4. Vercel adresini Supabase Authentication URL Configuration alanındaki Site URL ve Redirect URLs listesine ekleyin.
 5. Canlı uygulamada yeni bir deneme hesabıyla giriş, iki yönlü senkronizasyon ve AI analizini doğrulayın.
+
+Ücret politikası: Vercel Hobby, Supabase Free ve herkese açık depolar için GitHub Actions ücretsiz kotası dışına çıkılmamalıdır. Özel alan adı, ücretli izleme hizmeti veya plan yükseltmesi zorunlu değildir. Sağlayıcı limitleri dolarsa kapasite satın almak yerine özellik geçici olarak sınırlandırılmalıdır.
 
 Vercel güvenlik başlıkları [vercel.json](vercel.json), her push/PR doğrulaması ise [.github/workflows/ci.yml](.github/workflows/ci.yml) içinde tanımlıdır.
 
@@ -80,6 +94,8 @@ Vercel güvenlik başlıkları [vercel.json](vercel.json), her push/PR doğrulam
 - Bulut kayıtları kullanıcı kimliğiyle ayrılır ve PostgreSQL RLS politikalarıyla korunur.
 - Gemini anahtarı istemciye gönderilmez; AI çağrıları kimlik doğrulanan server-side function üzerinden yapılır.
 - Ekran görüntüleri analiz amacı dışında kalıcı olarak saklanmaz.
+- Anonim sayfa istatistikleri ayarlardan kapatılabilir; üretkenlik içeriği analiz olaylarına eklenmez.
+- Geri bildirim yalnız kullanıcı açıkça gönderdiğinde yazılır ve sunucuda günlük hız sınırına tabidir.
 
 ## Yol haritası
 

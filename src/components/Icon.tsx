@@ -24,7 +24,13 @@ export function Icon({ name, size = 20 }: { name: keyof typeof paths; size?: num
   return <svg className="line-icon" aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{(name === 'clock' || name === 'globe') && <circle cx="12" cy="12" r="9" />}<path d={paths[name]} /></svg>
 }
 export function AreaIcon({ area }: { area: Area }) {
-  return <Icon name={area === 'Bilgi' ? 'book' : area === 'Kariyer' ? 'code' : area === 'Sağlık' ? 'heart' : area === 'İngilizce' ? 'globe' : 'cap'} />
+  const normalized = area.toLocaleLowerCase('tr-TR')
+  const name = /kitap|bilgi|oku|öğren|eğitim|ders/.test(normalized) ? 'book'
+    : /kariyer|kod|yazılım|iş|work/.test(normalized) ? 'code'
+      : /sağlık|spor|egzersiz|well/.test(normalized) ? 'heart'
+        : /dil|ingiliz|english|global/.test(normalized) ? 'globe'
+          : 'cap'
+  return <Icon name={name} />
 }
 export function HabitRing({ value, completed = value >= 1 }: { value: number; completed?: boolean }) {
   return <span className="habit-ring" aria-label={(completed ? 'Tamamlandı · ' : '') + 'İlerleme yüzde ' + Math.round(value * 100)}><svg viewBox="0 0 36 36"><circle className="habit-ring-bg" cx="18" cy="18" r="15" /><circle className="habit-ring-value" cx="18" cy="18" r="15" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - Math.max(0, Math.min(1, value)) * 100} /></svg>{completed && <Icon name="check" size={18} />}</span>

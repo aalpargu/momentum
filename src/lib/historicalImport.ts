@@ -1,10 +1,10 @@
 import type { AppState, Area, FocusSession, ScreenTimeEntry } from './domain'
+import { defaultAreas, normalizeArea } from './areas.ts'
 
 export type HistoricalKind = 'focus' | 'useful' | 'passive' | 'necessary' | 'unclassified'
 export type HistoricalRecord = { row: number; date: string; title: string; minutes: number; kind: HistoricalKind; area: Area }
 export type HistoricalParseResult = { records: HistoricalRecord[]; errors: string[] }
 
-const areas: Area[] = ['Eğitim', 'Kariyer', 'İngilizce', 'Sağlık', 'Bilgi']
 const durationPattern = /(\d+(?:[.,]\d+)?)\s*(saat|sa|hour|hours|dk|dakika|dak|minute|minutes|min)\b/giu
 
 function normalize(value: unknown) {
@@ -44,17 +44,18 @@ function minutesFrom(value: unknown, unit?: unknown): number | null {
 }
 
 function explicitArea(value: unknown): Area | null {
-  const normalized = normalize(value).split('/')[0]
-  return areas.find((area) => normalize(area) === normalized) ?? null
+  const raw = String(value ?? '').split('/')[0]
+  return raw.trim() ? normalizeArea(raw) : null
 }
 
 export function inferArea(title: string): Area {
   const value = normalize(title)
+  if (/kitap|okuma|reading|arastirma/.test(value)) return 'Öğrenme'
   if (/ingiliz|english|vocabulary|kelime/.test(value)) return 'İngilizce'
   if (/spor|egzersiz|yuruyus|kosu|fitness|saglik/.test(value)) return 'Sağlık'
   if (/dsa|veri yap|algoritma|universite|ders|sinav|okul/.test(value)) return 'Eğitim'
   if (/kod|coding|yazilim|proje|staj|kariyer|program/.test(value)) return 'Kariyer'
-  return 'Bilgi'
+  return defaultAreas[3]
 }
 
 function kindFrom(value: unknown, fallback: HistoricalKind = 'focus'): HistoricalKind {
