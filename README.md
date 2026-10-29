@@ -12,8 +12,6 @@ A personal productivity PWA that brings focus sessions, tasks, habits, screen-ti
 
 I wanted one place to plan useful work and compare the plan with time actually recorded. A task list alone does not show where time went; a timer alone does not connect sessions to daily priorities. Momentum connects those records while keeping the core workflow available without an account.
 
-Developed by Ali İhsan Alpargu as a personal project, with AI-assisted implementation and iteration, including Codex.
-
 ## What it does
 
 | Workflow | Implemented behavior |
@@ -108,6 +106,6 @@ The web-hosted app cannot access this local server. On compatible desktop browse
 
 ## Project status
 
-Momentum is a personal application with a hosted version and an actively developed source tree. Implemented features and verification results are documented separately from provider/device checks. No user-count, uptime, performance improvement or accuracy claim is made without a measurement.
+Momentum is a personal application with a hosted version and an actively developed source tree. Current checks and remaining browser/device checks are listed in the verification record.
 
 See [CHANGELOG.md](CHANGELOG.md), [RELEASE.md](RELEASE.md), [OPERATIONS.md](OPERATIONS.md) and [SECURITY.md](SECURITY.md) for the existing release and maintenance notes.

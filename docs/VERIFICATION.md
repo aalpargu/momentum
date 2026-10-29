@@ -18,6 +18,8 @@ An initial restricted execution failed on temporary-file rename and loopback HTT
 
 ## Checks tracked separately
 
+The first full Playwright development run on this Windows machine finished with **144 passed, 47 failed and 4 skipped** across 195 cases. All 39 Firefox cases failed at browser launch (`spawn UNKNOWN`). Eight WebKit cases failed: six timed out or could not find the expected UI, and two reported a local-backup access-control error. These results need investigation; the browser matrix has not passed.
+
 - Playwright browser scenarios are separate from `npm run check`.
 - Production-preview PWA checks are separate from development-server scenarios.
 - Live Gemini/Supabase/Web Push behavior, physical-device sync and actual Google Drive remote upload are separate acceptance checks.
