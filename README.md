@@ -6,7 +6,7 @@ A personal productivity PWA that brings focus sessions, tasks, habits, screen-ti
 
 ![Momentum dashboard](outputs/ui-ux/today-desktop.png)
 
-> This branch collects the current local source after the last published GitHub commit. The hosted app and the existing screenshot may show an earlier interface. The package version remains `1.2.1`; this is a source update, not a new release announcement.
+> This maintenance update brings the current saved development source into the repository. The hosted app and the existing screenshot may show an earlier interface. The package version remains `1.2.1`; this is a source update, not a new release announcement.
 
 ## Why I built it
 

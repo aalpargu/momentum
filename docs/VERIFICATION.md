@@ -1,32 +1,27 @@
 # Verification record
 
-## 29 October 2026 source snapshot
+## 29 October 2026
 
-The current uncommitted source from the original development folder was copied into an independent preparation branch. The copy operation compared SHA-256 hashes for all 63 changed/new source files before documentation changes. Personal environment files and installed dependencies were not part of that copy.
-
-`npm run check` passed against that source on Windows:
+The maintenance update brings the saved local development source into the repository with its regression tests and documentation. The original 63 changed/new source files were compared with SHA-256 hashes before the documentation work. Personal environment files and installed dependencies were excluded.
 
 | Check | Result |
 | --- | --- |
-| Node unit and regression tests | 64 passed, 0 failed, 0 skipped |
-| ESLint | Passed |
-| TypeScript | Passed |
-| Static assets / PWA document checks | Passed |
+| Local Node unit/regression tests | 64 passed, 0 failed, 0 skipped |
+| ESLint, TypeScript and static/PWA asset checks | Passed |
 | Production build | Passed |
+| Dependency audit after the Vite/transitive updates | No reported vulnerabilities |
+| GitHub CI on Node 22 and Node 24 | Passed |
+| GitHub Playwright job on Linux | Passed |
+| CodeQL / JavaScript and TypeScript checks | Passed |
+| Vercel preview deployment | Passed |
 
-An initial restricted execution failed on temporary-file rename and loopback HTTP permissions. Repeating the same command in the normal local environment passed; application behavior was not changed to suppress those tests.
+The full remote checks above passed on functional commit `1ae63be89e946751fbea4e0d2b9713c5de0f0794` in [CI run 40802477765](https://github.com/aalpargu/momentum/actions/runs/40802477765). The later documentation update does not change application behavior. Configured skipped scenarios are not treated as completed tests.
 
-## Checks tracked separately
+The CI failures encountered while preparing this update led to three fixes: current Vite/transitive packages, wrapping page headings on narrow screens, and rejecting Windows absolute-path syntax in the companion server on every host OS. The first full Windows browser run had Firefox process-launch and WebKit failures; the completed Linux CI run is the evidence for the configured remote browser matrix.
 
-The first full Playwright development run on this Windows machine finished with **144 passed, 47 failed and 4 skipped** across 195 cases. All 39 Firefox cases failed at browser launch (`spawn UNKNOWN`). Eight WebKit cases failed: six timed out or could not find the expected UI, and two reported a local-backup access-control error. These results need investigation; the browser matrix has not passed.
+## Separate acceptance checks
 
-GitHub's Linux run at `a5b085b` reached **186 passed, 4 failed and 5 skipped**. Its four failures identified the same narrow-screen heading overflow on the Habits page. The dependency audit also identified vulnerable Vite and source-map-js versions.
-
-The follow-up updates Vite to 8.3.5 and compatible transitive dependencies; `npm audit fix` reports zero vulnerabilities. Mobile page headings can wrap instead of forcing their action button outside the viewport. On the updated source, `npm run check` passes, and the existing narrow-screen scenario passes in desktop and mobile Chromium. The full remote matrix must be checked on the new commit before merging.
-
-- Playwright browser scenarios are separate from `npm run check`.
-- Production-preview PWA checks are separate from development-server scenarios.
-- Live Gemini/Supabase/Web Push behavior, physical-device sync and actual Google Drive remote upload are separate acceptance checks.
-- Existing hosted screenshots are not evidence that this source snapshot has been deployed.
-
-Update this record with actual browser and CI results before making a release-readiness claim.
+- Development browser scenarios and production-preview/offline PWA scenarios are separate commands.
+- Live Gemini, Supabase, Web Push and physical-device synchronization need their own acceptance checks.
+- A successful companion-server write verifies a local backup, not the Google Drive desktop application's later remote upload.
+- The README screenshot is an existing illustration and may show an earlier interface.
