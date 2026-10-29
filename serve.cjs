@@ -171,6 +171,7 @@ function resolveRequestPath(rawUrl) {
   const normalizedForCheck = decodedPath.replace(/\\/g, '/')
   if (normalizedForCheck.split('/').includes('..')) return { error: 403 }
   const relativePath = normalizedForCheck.replace(/^\/+/, '') || 'index.html'
+  if (path.win32.isAbsolute(relativePath)) return { error: 403 }
   const candidate = path.resolve(DIST, relativePath)
   if (!isInsideDist(candidate)) return { error: 403 }
   return { candidate, relativePath }
