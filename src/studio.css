@@ -325,6 +325,9 @@ html:not([data-theme='light']) .focus-cycle-message { color: var(--ink); border-
 }
 @media (max-width: 760px) {
   .app-shell { width: auto; margin: 0; padding: 0 18px 125px; }
+  .tab-page > .section-heading { flex-wrap: wrap; }
+  .tab-page > .section-heading > div { min-width: 0; max-width: 100%; }
+  .tab-page > .section-heading > button { max-width: 100%; }
   .topbar { position: relative; inset: auto; width: auto; padding: 20px 0 15px; flex-direction: row; align-items: center; justify-content: space-between; border: 0; background: transparent; }
   .topbar .brand { margin: 0; font-size: 20px; }
   .brand small { font-size: 7px; }

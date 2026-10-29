@@ -93,7 +93,12 @@ test('all screens fit a narrow window with an unbroken task title', async ({ pag
   for (const section of ['Bugün', 'Alışkanlıklar', 'Günlük', 'İlerleme', 'Takvim']) {
     await tab(page, section)
     await expect(page.locator('main h1')).toBeVisible()
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), section).toBe(true)
+    const layout = await page.evaluate(() => ({
+      viewport: innerWidth,
+      width: document.documentElement.scrollWidth,
+      overflow: [...document.querySelectorAll('main *')].filter(element => element.getBoundingClientRect().right > innerWidth + 0.5).map(element => ({ tag: element.tagName, className: element.className, text: element.textContent?.slice(0, 80) })),
+    }))
+    expect(layout.width, `${section}: ${JSON.stringify(layout)}`).toBeLessThanOrEqual(layout.viewport)
     if (section === 'Bugün' || section === 'Takvim') await page.screenshot({ path: testInfo.outputPath(section + '.png'), fullPage: true, animations: 'disabled' })
   }
 })

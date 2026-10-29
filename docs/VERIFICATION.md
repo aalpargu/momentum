@@ -20,6 +20,10 @@ An initial restricted execution failed on temporary-file rename and loopback HTT
 
 The first full Playwright development run on this Windows machine finished with **144 passed, 47 failed and 4 skipped** across 195 cases. All 39 Firefox cases failed at browser launch (`spawn UNKNOWN`). Eight WebKit cases failed: six timed out or could not find the expected UI, and two reported a local-backup access-control error. These results need investigation; the browser matrix has not passed.
 
+GitHub's Linux run at `a5b085b` reached **186 passed, 4 failed and 5 skipped**. Its four failures identified the same narrow-screen heading overflow on the Habits page. The dependency audit also identified vulnerable Vite and source-map-js versions.
+
+The follow-up updates Vite to 8.3.5 and compatible transitive dependencies; `npm audit fix` reports zero vulnerabilities. Mobile page headings can wrap instead of forcing their action button outside the viewport. On the updated source, `npm run check` passes, and the existing narrow-screen scenario passes in desktop and mobile Chromium. The full remote matrix must be checked on the new commit before merging.
+
 - Playwright browser scenarios are separate from `npm run check`.
 - Production-preview PWA checks are separate from development-server scenarios.
 - Live Gemini/Supabase/Web Push behavior, physical-device sync and actual Google Drive remote upload are separate acceptance checks.
