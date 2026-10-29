@@ -51,8 +51,8 @@ async function hashPayload(payload: unknown) {
 async function detachCurrentPush(removeRemote?: (endpoint: string) => Promise<void>) {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return
   try {
-    const registration = await navigator.serviceWorker.ready
-    const subscription = await registration.pushManager.getSubscription()
+    const registration = await navigator.serviceWorker.getRegistration()
+    const subscription = await registration?.pushManager.getSubscription()
     if (!subscription) return
     if (removeRemote) await removeRemote(subscription.endpoint).catch(() => undefined)
     await subscription.unsubscribe().catch(() => undefined)
@@ -78,12 +78,15 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
   const lastHashRef = useRef<string | null>(null)
   const operationRef = useRef(0)
   const uploadInFlightRef = useRef(false)
+  const disabledRef = useRef(disabled || !storageReady)
+  disabledRef.current = disabled || !storageReady
   stateRef.current = state
   accountRef.current = account
   recordRef.current = record
 
   const refreshAccount = async (next: CloudAccount | null) => {
     const operation = ++operationRef.current
+    uploadInFlightRef.current = false
     setAccount(next); accountRef.current = next
     setRecord(null); recordRef.current = null
     revisionRef.current = null; lastHashRef.current = null
@@ -95,7 +98,9 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
       if (operation !== operationRef.current) return
       setRecord(remote); recordRef.current = remote; revisionRef.current = remote?.revision ?? null
       const link = readLink(next.id)
-      if (remote && link?.revision === remote.revision) {
+      const localHash = await hashPayload(stateRef.current)
+      if (operation !== operationRef.current) return
+      if (remote && link?.revision === remote.revision && link.payloadHash === localHash) {
         lastHashRef.current = link.payloadHash
         setPhase('synced'); setMessage(`Bulut senkronizasyonu açık · sürüm ${remote.revision}`)
       } else {
@@ -109,7 +114,7 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
   }
 
   useEffect(() => {
-    if (!cloudConfigured) return
+    if (!cloudConfigured || !storageReady) return
     let active = true
     let stopObserving: () => void = () => undefined
     void import('../lib/cloud').then(async api => {
@@ -121,18 +126,20 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
       catch (error) { if (active) { setBusy(false); setPhase('error'); setMessage(error instanceof Error ? error.message : 'Bulut oturumu okunamadı.') } }
     }).catch(error => { if (active) { setBusy(false); setPhase('error'); setMessage(error instanceof Error ? error.message : 'Bulut özelliği yüklenemedi.') } })
     return () => { active = false; operationRef.current += 1; stopObserving() }
-  }, [])
+  }, [storageReady])
 
   useEffect(() => {
     if (!cloudConfigured || !storageReady || disabled || phase !== 'synced' || !account || uploadInFlightRef.current) return
     const timer = window.setTimeout(async () => {
       const snapshot = stateRef.current
-      const hash = await hashPayload(snapshot)
-      if (hash === lastHashRef.current || uploadInFlightRef.current || !accountRef.current) return
       const operation = ++operationRef.current
-      uploadInFlightRef.current = true; setBusy(true); setPhase('syncing'); setMessage('Değişiklikler buluta kaydediliyor…')
       try {
+        const hash = await hashPayload(snapshot)
+        if (operation !== operationRef.current || disabledRef.current || accountRef.current?.id !== account.id || hash === lastHashRef.current || uploadInFlightRef.current) return
+        uploadInFlightRef.current = true; setBusy(true); setPhase('syncing'); setMessage('Değişiklikler buluta kaydediliyor…')
         const api = await import('../lib/cloud')
+        if (operation !== operationRef.current) return
+        if (disabledRef.current) { setPhase('synced'); return }
         const next = await api.saveCloudState(account.id, snapshot, revisionRef.current)
         if (operation !== operationRef.current) return
         setRecord(next); recordRef.current = next; revisionRef.current = next.revision; lastHashRef.current = hash
@@ -140,12 +147,12 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
         setPhase('synced'); setMessage(`Bulut güncel · sürüm ${next.revision}`)
       } catch (error) {
         if (operation !== operationRef.current) return
-        const api = await import('../lib/cloud')
-        setPhase(error instanceof api.CloudConflictError ? 'choice' : 'error')
+        const api = await import('../lib/cloud').catch(() => null)
+        if (operation !== operationRef.current) return
+        setPhase(api && error instanceof api.CloudConflictError ? 'choice' : 'error')
         setMessage(error instanceof Error ? error.message : 'Değişiklikler buluta kaydedilemedi; yerel kayıt korundu.')
       } finally {
-        if (operation === operationRef.current) setBusy(false)
-        uploadInFlightRef.current = false
+        if (operation === operationRef.current) { setBusy(false); uploadInFlightRef.current = false }
       }
     }, 1_200)
     return () => window.clearTimeout(timer)
@@ -237,42 +244,54 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
 
   const uploadLocal = async () => {
     const current = accountRef.current
-    if (!current || disabled) return
+    if (!current || disabledRef.current || uploadInFlightRef.current) return
+    const operation = ++operationRef.current
+    uploadInFlightRef.current = true
     setBusy(true); setPhase('syncing'); setMessage('Bu cihazdaki veriler buluta yazılıyor…')
     try {
       const snapshot = stateRef.current
       const hash = await hashPayload(snapshot)
       const api = await import('../lib/cloud')
+      if (operation !== operationRef.current) return
+      if (disabledRef.current) { setPhase('choice'); setMessage('Bulut yazımından önce açık odak oturumunu bitir.'); return }
       const next = await api.saveCloudState(current.id, snapshot, recordRef.current?.revision ?? null)
+      if (operation !== operationRef.current) return
       setRecord(next); recordRef.current = next; revisionRef.current = next.revision; lastHashRef.current = hash
       saveLink({ userId: current.id, revision: next.revision, payloadHash: hash })
       setPhase('synced'); setMessage(`Bulut senkronizasyonu açıldı · sürüm ${next.revision}`)
     } catch (error) {
-      const api = await import('../lib/cloud')
-      setPhase(error instanceof api.CloudConflictError ? 'choice' : 'error')
+      if (operation !== operationRef.current) return
+      const api = await import('../lib/cloud').catch(() => null)
+      if (operation !== operationRef.current) return
+      setPhase(api && error instanceof api.CloudConflictError ? 'choice' : 'error')
       setMessage(error instanceof Error ? error.message : 'Bulut kaydı güncellenemedi.')
       try {
+        if (!api) return
         const next = await api.loadCloudState(current.id)
+        if (operation !== operationRef.current) return
         setRecord(next); recordRef.current = next; revisionRef.current = next?.revision ?? null
       } catch { /* Asıl hata mesajını koru. */ }
-    } finally { setBusy(false) }
+    } finally { if (operation === operationRef.current) { setBusy(false); uploadInFlightRef.current = false } }
   }
 
   const downloadCloud = async () => {
     const current = accountRef.current
     const remote = recordRef.current
-    if (!current || !remote || disabled) return
+    if (!current || !remote || disabledRef.current || uploadInFlightRef.current) return
+    const operation = ++operationRef.current
     setBusy(true); setPhase('syncing'); setMessage('Bulut kaydı doğrulanıp bu cihaza yükleniyor…')
     try {
       const nextState = validatePayload(remote.payload)
       const result = await replaceState(nextState)
+      if (operation !== operationRef.current) return
       if (!result.ok) throw new Error(result.error ?? 'Bulut verisi yerel depoya yazılamadı.')
       const hash = await hashPayload(nextState)
+      if (operation !== operationRef.current) return
       revisionRef.current = remote.revision; lastHashRef.current = hash
       saveLink({ userId: current.id, revision: remote.revision, payloadHash: hash })
       setPhase('synced'); setMessage(`Bulut verisi yüklendi · sürüm ${remote.revision}`)
-    } catch (error) { setPhase('choice'); setMessage(error instanceof Error ? error.message : 'Bulut verisi yüklenemedi.') }
-    finally { setBusy(false) }
+    } catch (error) { if (operation === operationRef.current) { setPhase('choice'); setMessage(error instanceof Error ? error.message : 'Bulut verisi yüklenemedi.') } }
+    finally { if (operation === operationRef.current) setBusy(false) }
   }
 
   const retry = async () => { await refreshAccount(accountRef.current) }

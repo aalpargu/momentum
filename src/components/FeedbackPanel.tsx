@@ -10,13 +10,18 @@ export function FeedbackPanel({ account }: { account: CloudAccount | null }) {
   const [includeDiagnostics, setIncludeDiagnostics] = useState(true)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(() => localStorage.getItem(analyticsOptOutKey) !== '1')
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(() => {
+    try { return localStorage.getItem(analyticsOptOutKey) !== '1' }
+    catch { return false }
+  })
 
   const toggleAnalytics = (enabled: boolean) => {
-    setAnalyticsEnabled(enabled)
-    if (enabled) localStorage.removeItem(analyticsOptOutKey)
-    else localStorage.setItem(analyticsOptOutKey, '1')
-    setStatus(enabled ? 'Anonim sayfa istatistikleri bu cihazda açıldı.' : 'Anonim sayfa istatistikleri bu cihazda kapatıldı.')
+    try {
+      if (enabled) localStorage.removeItem(analyticsOptOutKey)
+      else localStorage.setItem(analyticsOptOutKey, '1')
+      setAnalyticsEnabled(enabled)
+      setStatus(enabled ? 'Anonim sayfa istatistikleri bu cihazda açıldı.' : 'Anonim sayfa istatistikleri bu cihazda kapatıldı.')
+    } catch { setStatus('Gizlilik tercihi kaydedilemedi. Tarayıcının depolama iznini kontrol et.') }
   }
 
   const submit = async (event: FormEvent) => {
@@ -43,7 +48,7 @@ export function FeedbackPanel({ account }: { account: CloudAccount | null }) {
       <button className="timer-button" disabled={busy || !account || message.trim().length < 10}>{busy ? 'Gönderiliyor…' : 'Geri bildirimi gönder'}</button>
     </form>
     {!account && <p className="backup-warning">Sunucuyu kötüye kullanımdan korumak için gönderim giriş yapmış hesaplarla sınırlıdır. Hesapsız kullanımda <a href="https://github.com/aalpargu/momentum/issues" target="_blank" rel="noreferrer">destek sayfasını</a> kullanabilirsin.</p>}
-    <button type="button" className="quiet-button clear-diagnostics" onClick={() => { clearDiagnostics(); setStatus('Bu cihazdaki teknik tanılama geçmişi temizlendi.') }}>Yerel tanılama geçmişini temizle</button>
+    <button type="button" className="quiet-button clear-diagnostics" onClick={() => { try { clearDiagnostics(); setStatus('Bu cihazdaki teknik tanılama geçmişi temizlendi.') } catch { setStatus('Teknik tanılama geçmişi temizlenemedi. Depolama iznini kontrol et.') } }}>Yerel tanılama geçmişini temizle</button>
     {status && <p className="feedback-status" role="status">{status}</p>}
   </section>
 }

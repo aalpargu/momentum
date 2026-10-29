@@ -1,3 +1,5 @@
+import { SessionHistoryEditor } from './SessionHistoryEditor'
+import { shortDuration } from '../lib/productivity'
 import { NumberInput } from './NumberInput'
 import { type FormEvent, useEffect, useState } from 'react'
 import type { AppState, Area, DailyReflection, FocusCategory, FocusSession, Habit, HabitEntry, HabitStatus, ScreenTimeEntry } from '../lib/domain'
@@ -6,12 +8,7 @@ import { ScreenTimeEntryEditor } from './ScreenTimePanel'
 
 const fallbackCategory: FocusCategory = { id: 'university', title: 'Üniversite', area: 'Eğitim', icon: '🎓' }
 
-function formatDuration(seconds: number) {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const remainingSeconds = seconds % 60
-  return hours > 0 ? `${hours}s ${String(minutes).padStart(2, '0')}d` : `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
-}
+const formatDuration = shortDuration
 
 export function DayDetailModal({ date, state, focusCategories, onClose, onAddSession, onUpdateSession, onDeleteSession, onSetHabitEntry, onSaveReflection, onUpdateScreenTime, onDeleteScreenTime }: { date: string; state: AppState; focusCategories: FocusCategory[]; onClose: () => void; onAddSession: (date: string, title: string, area: Area, minutes: number) => Promise<string | null>; onUpdateSession: (id: string, update: Pick<FocusSession, 'title' | 'area' | 'seconds'>) => Promise<string | null>; onDeleteSession: (id: string) => void; onSetHabitEntry: (date: string, id: string, entry: HabitEntry | null) => Promise<boolean>; onSaveReflection: (date: string, reflection: DailyReflection) => Promise<boolean>; onUpdateScreenTime: (id: string, update: Pick<ScreenTimeEntry, 'app' | 'minutes' | 'kind'>) => Promise<string | null>; onDeleteScreenTime: (id: string) => void }) {
   const sessions = state.sessions.filter((session) => session.date === date)
@@ -30,15 +27,6 @@ export function DayDetailModal({ date, state, focusCategories, onClose, onAddSes
     <section><h3>Gün Sonu Notu</h3><HistoryReflectionEditor initial={state.reflections[date]} onSave={(reflection) => onSaveReflection(date, reflection)} /></section>
     <section><h3>Telefon Ekran Süresi · {formatDuration(screenEntries.reduce((sum, entry) => sum + entry.minutes, 0) * 60)}</h3>{screenEntries.length === 0 ? <p className="subtle">Bu tarihte ekran süresi kaydı yok.</p> : <div className="screen-time-list">{screenEntries.map((entry) => <ScreenTimeEntryEditor key={entry.id} entry={entry} onSave={(update) => onUpdateScreenTime(entry.id, update)} onDelete={() => onDeleteScreenTime(entry.id)} />)}</div>}</section>
   </div></AccessibleModal>
-}
-
-function SessionHistoryEditor({ session, categories, onSave, onDelete }: { session: FocusSession; categories: FocusCategory[]; onSave: (update: Pick<FocusSession, 'title' | 'area' | 'seconds'>) => Promise<string | null>; onDelete: () => void }) {
-  const [title, setTitle] = useState(session.title); const [area, setArea] = useState(session.area); const [minutes, setMinutes] = useState(String(Math.round(session.seconds / 60))); const [error, setError] = useState('')
-  useEffect(() => { setTitle(session.title); setArea(session.area); setMinutes(String(Math.round(session.seconds / 60))) }, [session.title, session.area, session.seconds])
-  const options = categories.some((category) => category.title === session.title) ? categories : [{ id: `history-${session.id}`, title: session.title, area: session.area, icon: '⏱️', archived: true }, ...categories]
-  const changeTitle = (value: string) => { setTitle(value); const category = options.find((item) => item.title === value); if (category) setArea(category.area); setError('') }
-  const save = async () => setError(await onSave({ title, area, seconds: minutes === String(Math.round(session.seconds / 60)) ? session.seconds : Number(minutes) * 60 }) ?? '')
-  return <div className="history-editor" data-record={session.id}><select aria-label={`${session.title} kategorisi`} value={title} onChange={(event) => changeTitle(event.target.value)}>{options.map((category) => <option key={category.id} value={category.title}>{category.icon} {category.title}{category.archived ? ' (arşiv)' : ''}</option>)}</select><NumberInput aria-label={`${session.title} dakika`} unit="dk" min="1" max="1440" value={minutes} onChange={(event) => { setMinutes(event.target.value); setError('') }} /><button onClick={save}>Kaydet</button><button className="delete-action" onClick={onDelete}>Sil</button>{error && <p className="form-error">{error}</p>}</div>
 }
 
 function HistoricalHabitEditor({ habit, entry, onSave }: { habit: Habit; entry?: HabitEntry; onSave: (entry: HabitEntry | null) => Promise<boolean> }) {

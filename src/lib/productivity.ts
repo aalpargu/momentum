@@ -7,6 +7,7 @@ export function shiftDate(date: string, days: number) {
 }
 
 export type WorkSeriesMode = 'day' | 'week' | 'month'
+export type ReportMode = 'week' | 'month'
 
 function mondayOf(date: string) {
   const weekday = (new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7
@@ -38,13 +39,12 @@ export function buildWorkSeries(sessions: FocusSession[], today: string, mode: W
   })
 }
 
-export function signalNoise(sessions: FocusSession[], entries: ScreenTimeEntry[], start: string, end: string) {
+export function signalNoise(_sessions: FocusSession[], entries: ScreenTimeEntry[], start: string, end: string) {
   const inside = (date: string) => date >= start && date <= end
-  const focusMinutes = sessions.filter((item) => inside(item.date)).reduce((sum, item) => sum + item.seconds / 60, 0)
   const usefulMinutes = entries.filter((item) => inside(item.date) && item.kind === 'useful').reduce((sum, item) => sum + item.minutes, 0)
   const noiseMinutes = entries.filter((item) => inside(item.date) && item.kind === 'passive').reduce((sum, item) => sum + item.minutes, 0)
   const excludedMinutes = entries.filter((item) => inside(item.date) && (item.kind === 'necessary' || item.kind === 'unclassified')).reduce((sum, item) => sum + item.minutes, 0)
-  const signalMinutes = focusMinutes + usefulMinutes
+  const signalMinutes = usefulMinutes
   const measuredMinutes = signalMinutes + noiseMinutes
   return { signalMinutes, noiseMinutes, excludedMinutes, share: measuredMinutes ? signalMinutes / measuredMinutes * 100 : null, ratio: noiseMinutes ? signalMinutes / noiseMinutes : signalMinutes ? Infinity : null }
 }
@@ -67,6 +67,18 @@ export function weekPeriod(today: string, offset = 0) {
   const end = offset < 0 ? shiftDate(start, 6) : today
   const days = Array.from({ length: offset < 0 ? 7 : weekday + 1 }, (_, i) => shiftDate(start, i))
   return { start, end, days, previousStart: shiftDate(start, -7), previousEnd: shiftDate(end, -7) }
+}
+
+export function monthPeriod(today: string, offset = 0) {
+  const month = monthShift(today.slice(0, 7), Math.min(0, offset))
+  const start = `${month}-01`
+  const end = offset < 0 ? shiftDate(`${monthShift(month, 1)}-01`, -1) : today
+  const days = Array.from({ length: Number(end.slice(8)) }, (_, index) => shiftDate(start, index))
+  const previousStart = `${monthShift(month, -1)}-01`
+  const previousLast = shiftDate(start, -1)
+  // Current month compares elapsed calendar days, capped to the previous month's length.
+  const previousEnd = offset < 0 ? previousLast : shiftDate(previousStart, Math.min(days.length, Number(previousLast.slice(8))) - 1)
+  return { start, end, days, previousStart, previousEnd }
 }
 
 function normalizedApp(name: string) {
@@ -156,8 +168,8 @@ export function hourlyFocus(sessions: FocusSession[]) {
   return { hours: hours.map(({ days, ...hour }) => ({ ...hour, days: days.size })), ranked: ranked.map(({ days, ...hour }) => ({ ...hour, days: days.size })), measuredCount: measuredIds.size, measuredDays: measuredDays.size, excludedCount }
 }
 
-export function buildProductivityReport(sessions: FocusSession[], entries: ScreenTimeEntry[], today: string, offset = 0) {
-  const period = weekPeriod(today, offset)
+export function buildProductivityReport(sessions: FocusSession[], entries: ScreenTimeEntry[], today: string, offset = 0, mode: ReportMode = 'week') {
+  const period = mode === 'month' ? monthPeriod(today, offset) : weekPeriod(today, offset)
   const inside = (date: string, start: string, end: string) => date >= start && date <= end
   const currentSessions = sessions.filter((s) => inside(s.date, period.start, period.end))
   const previousSessions = sessions.filter((s) => inside(s.date, period.previousStart, period.previousEnd))
@@ -180,22 +192,30 @@ export function buildProductivityReport(sessions: FocusSession[], entries: Scree
   const days = period.days.map((date) => ({ date, focusSeconds: currentSessions.filter((s) => s.date === date).reduce((sum, s) => sum + s.seconds, 0), socialMinutes: socialMinutes(currentEntries.filter((e) => e.date === date)), hasScreenRecord: currentEntries.some((e) => e.date === date) }))
   const bestDay = days.filter((d) => d.focusSeconds > 0).sort((a, b) => b.focusSeconds - a.focusSeconds || a.date.localeCompare(b.date))[0] ?? null
   const currentSocialMinutes = socialMinutes(currentEntries), previousSocialMinutes = socialMinutes(previousEntries)
-  return { period, focus, previousFocus, focusChange: percentageChange(focus.seconds, previousFocus.seconds), socialMinutes: currentSocialMinutes, previousSocialMinutes, socialChange: percentageChange(currentSocialMinutes, previousSocialMinutes), screenDays: new Set(currentEntries.map((e) => e.date)).size, previousScreenDays: new Set(previousEntries.map((e) => e.date)).size, apps, days, bestDay, hourly: hourlyFocus(currentSessions) }
+  const activities = [...currentSessions.reduce((map, session) => map.set(session.title, (map.get(session.title) ?? 0) + session.seconds), new Map<string, number>()).entries()]
+    .map(([title, seconds]) => ({ title, seconds })).sort((a, b) => b.seconds - a.seconds || a.title.localeCompare(b.title, 'tr-TR'))
+  const previousDayCount = Math.round((Date.parse(period.previousEnd) - Date.parse(period.previousStart)) / 86_400_000) + 1
+  return { mode, period, previousDayCount, activities, dailyAverageSeconds: focus.seconds / days.length, focus, previousFocus, focusChange: percentageChange(focus.seconds, previousFocus.seconds), socialMinutes: currentSocialMinutes, previousSocialMinutes, socialChange: percentageChange(currentSocialMinutes, previousSocialMinutes), screenDays: new Set(currentEntries.map((e) => e.date)).size, previousScreenDays: new Set(previousEntries.map((e) => e.date)).size, apps, days, bestDay, hourly: hourlyFocus(currentSessions) }
 }
 export type ProductivityReport = ReturnType<typeof buildProductivityReport>
 
 export function weeklyReportText(report: ProductivityReport) {
   return [
-    '# Momentum · Haftalık verimlilik raporu',
+    `# Momentum · ${report.mode === 'month' ? 'Aylık' : 'Haftalık'} verimlilik raporu`,
     periodLabel(report.period.start, report.period.end),
     `Karşılaştırma: ${periodLabel(report.period.previousStart, report.period.previousEnd)}`,
     '',
     `Kaydedilen odak: ${durationText(report.focus.seconds)} · ${report.focus.count} oturum`,
-    `Ortalama odak: ${report.focus.count ? durationText(report.focus.averageSeconds) : 'Kayıt yok'}`,
+    `Günlük ortalama: ${durationText(report.dailyAverageSeconds)} · ${report.period.days.length} takvim günü üzerinden`,
+    `Oturum başına ortalama: ${report.focus.count ? durationText(report.focus.averageSeconds) : 'Kayıt yok'}`,
     `Odak değişimi: ${changeText(report.focusChange)}`,
     `Kaydedilen sosyal medya: ${report.socialMinutes ? durationText(report.socialMinutes * 60) : 'Kayıt yok'}`,
     `Odak kaydı olan gün: ${report.focus.activeDays}/${report.period.days.length}`,
-    `Ekran kaydı olan gün: ${report.screenDays}/${report.period.days.length}; önceki dönem: ${report.previousScreenDays}/${report.period.days.length}`,
+    `Ekran kaydı olan gün: ${report.screenDays}/${report.period.days.length}; önceki dönem: ${report.previousScreenDays}/${report.previousDayCount}`,
+    '', '## Konu dağılımı',
+    ...report.activities.map(activity => `${activity.title}: ${durationText(activity.seconds)}`),
+    '', '## Günlük çalışma',
+    ...report.days.map(day => `${day.date}: ${durationText(day.focusSeconds)}`),
     '', '## Uygulama karşılaştırması',
     ...report.apps.map((app) => `${app.name}: ${app.current ? durationText(app.current * 60) : 'Kayıt yok'} / önceki ${app.previous ? durationText(app.previous * 60) : 'Kayıt yok'} · ${changeText(app.change)} · kayıt günü ${app.currentDays}/${app.previousDays}`),
     '', '## En çok odaklanılan saatler',
@@ -203,4 +223,11 @@ export function weeklyReportText(report: ProductivityReport) {
     '', 'Hesaplar kaydedilen verilere dayanır. Eksik kayıtlar sıfır kullanım sayılmaz. Açık oturumlar ortalamaya dahil değildir. Saat analizinde mola süreleri, manuel ve saat ayrıntısı olmayan eski kayıtlar kullanılmaz.',
     `Sosyal medya uygulamaları: ${socialAppNames.join(', ')}. Faydalı olarak işaretlenen sosyal medya kullanımı da bu toplama dahildir.`,
   ].join('\n')
+}
+
+/** Saved work meeting the current daily target; habits and open timers are excluded. */
+export function workTargetDates(sessions: FocusSession[], targetMinutes: number) {
+  const totals = new Map<string, number>()
+  for (const session of sessions) totals.set(session.date, (totals.get(session.date) ?? 0) + session.seconds)
+  return new Set([...totals].filter(([, seconds]) => seconds >= targetMinutes * 60).map(([date]) => date))
 }

@@ -1,10 +1,40 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { FocusSession, ScreenTimeEntry } from '../src/lib/domain.ts'
-import { buildProductivityReport, buildWorkSeries, changeText, hourlyFocus, percentageChange, productivityStreak, signalNoise, socialAppName, weekPeriod, weeklyReportText } from '../src/lib/productivity.ts'
+import { buildProductivityReport, buildWorkSeries, changeText, hourlyFocus, percentageChange, productivityStreak, signalNoise, workTargetDates, socialAppName, weekPeriod, monthPeriod, weeklyReportText } from '../src/lib/productivity.ts'
 
 const focus = (partial: Partial<FocusSession> & Pick<FocusSession, 'id' | 'date' | 'seconds'>): FocusSession => ({ title: 'Coding', area: 'Kariyer', startedAt: `${partial.date}T09:00:00.000Z`, ...partial })
 const screen = (partial: Partial<ScreenTimeEntry> & Pick<ScreenTimeEntry, 'id' | 'date' | 'app' | 'minutes'>): ScreenTimeEntry => ({ kind: 'passive', source: 'manual', createdAt: `${partial.date}T20:00:00.000Z`, ...partial })
+
+test('monthly periods handle leap years, unequal month lengths and year boundaries', () => {
+  const march = monthPeriod('2024-03-31')
+  assert.equal(march.days.length, 31)
+  assert.equal(march.previousStart, '2024-02-01')
+  assert.equal(march.previousEnd, '2024-02-29')
+  assert.equal(monthPeriod('2024-03-14').previousEnd, '2024-02-14')
+  assert.equal(monthPeriod('2024-03-14', -1).days.length, 29)
+  assert.equal(monthPeriod('2024-01-14', -1).end, '2023-12-31')
+  assert.equal(monthPeriod('2025-03-31').previousEnd, '2025-02-28')
+})
+
+test('one monthly period drives totals, day averages, subjects, screen time and exports', () => {
+  const sessions = [focus({ id: 'prev', date: '2024-02-29', seconds: 7200 }), focus({ id: 'current', date: '2024-03-01', seconds: 3600 }), focus({ id: 'later', date: '2024-03-15', seconds: 1800 })]
+  const entries = [screen({ id: 'prev-app', date: '2024-02-29', app: 'Instagram', minutes: 10 }), screen({ id: 'current-app', date: '2024-03-15', app: 'Instagram', minutes: 30 })]
+  const report = buildProductivityReport(sessions, entries, '2024-03-31', 0, 'month')
+  assert.equal(report.focus.seconds, 5400)
+  assert.equal(report.dailyAverageSeconds, 5400 / 31)
+  assert.equal(report.previousDayCount, 29)
+  assert.equal(report.previousFocus.seconds, 7200)
+  assert.equal(report.activities[0].seconds, 5400)
+  assert.equal(report.days.reduce((sum, day) => sum + day.focusSeconds, 0), 5400)
+  assert.equal(report.socialMinutes, 30)
+  assert.equal(report.previousSocialMinutes, 10)
+  assert.match(weeklyReportText(report), /Aylık verimlilik raporu/)
+  assert.match(weeklyReportText(report), /önceki dönem: 1\/29/)
+  const previous = buildProductivityReport(sessions, entries, '2024-03-31', -1, 'month')
+  assert.equal(previous.focus.seconds, 7200)
+  assert.equal(previous.days.length, 29)
+})
 
 test('current week compares Monday-to-today with the same weekdays last week', () => {
   assert.deepEqual(weekPeriod('2026-09-02'), {
@@ -65,10 +95,10 @@ test('signal-to-noise excludes necessary time and includes useful screen time', 
     [screen({ id: 'useful', date: '2026-09-02', app: 'Docs', minutes: 30, kind: 'useful' }), screen({ id: 'noise', date: '2026-09-02', app: 'Instagram', minutes: 50 }), screen({ id: 'bank', date: '2026-09-02', app: 'Banka', minutes: 10, kind: 'necessary' })],
     '2026-09-01', '2026-09-02',
   )
-  assert.equal(metric.signalMinutes, 150)
+  assert.equal(metric.signalMinutes, 30)
   assert.equal(metric.noiseMinutes, 50)
-  assert.equal(metric.share, 75)
-  assert.equal(metric.ratio, 3)
+  assert.equal(metric.share, 37.5)
+  assert.equal(metric.ratio, 0.6)
   assert.equal(metric.excludedMinutes, 10)
 })
 
@@ -88,4 +118,18 @@ test('work series aggregates titles for daily, weekly and monthly detail', () =>
 test('current streak waits until today ends before breaking', () => {
   assert.deepEqual(productivityStreak(new Set(['2026-08-30', '2026-08-31', '2026-09-01']), '2026-09-02'), { current: 3, best: 3, activeToday: false, nextMilestone: 7 })
   assert.equal(productivityStreak(new Set(['2026-09-01', '2026-09-02']), '2026-09-02').current, 2)
+})
+
+test('eight-hour work chain requires saved target totals, including split manual entries', () => {
+  const sessions = [focus({ id: 'a', date: '2026-09-01', seconds: 4 * 3600 }), focus({ id: 'b', date: '2026-09-01', seconds: 4 * 3600 }), focus({ id: 'c', date: '2026-09-02', seconds: 8 * 3600 - 1 })]
+  assert.deepEqual([...workTargetDates(sessions, 480)], ['2026-09-01'])
+  assert.equal(signalNoise(sessions, [], '2026-09-01', '2026-09-02').share, null)
+})
+test('a year of ten-hour work days keeps exact month/week totals across year and leap boundaries', () => {
+  const sessions = Array.from({ length: 366 }, (_, i) => { const d = new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10); return focus({ id: String(i), date: d, seconds: 36000 }) })
+  const months = buildWorkSeries(sessions, '2024-12-31', 'month')
+  assert.equal(months.reduce((sum, m) => sum + m.seconds, 0), 366 * 36000)
+  assert.equal(months.find(m => m.key === '2024-02')!.seconds, 29 * 36000)
+  assert.equal(buildWorkSeries(sessions, '2024-12-31', 'week').at(-1)!.seconds, 2 * 36000)
+  assert.equal(productivityStreak(workTargetDates(sessions, 480), '2024-12-31').current, 366)
 })

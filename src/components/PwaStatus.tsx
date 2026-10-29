@@ -6,7 +6,9 @@ export function PwaStatus() {
   const [online, setOnline] = useState(navigator.onLine)
   const [updateReady, setUpdateReady] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
+  const [error, setError] = useState('')
   useEffect(() => {
+    let active = true
     const connected = () => setOnline(true)
     const disconnected = () => setOnline(false)
     const update = () => setUpdateReady(true)
@@ -15,7 +17,9 @@ export function PwaStatus() {
     window.addEventListener('offline', disconnected)
     window.addEventListener('momentum-sw-update', update)
     window.addEventListener('beforeinstallprompt', install)
-    return () => { window.removeEventListener('online', connected); window.removeEventListener('offline', disconnected); window.removeEventListener('momentum-sw-update', update); window.removeEventListener('beforeinstallprompt', install) }
+    // The worker may finish installing before IndexedDB allows this UI to mount.
+    void navigator.serviceWorker?.getRegistration().then(registration => { if (active && registration?.waiting) setUpdateReady(true) }).catch(() => undefined)
+    return () => { active = false; window.removeEventListener('online', connected); window.removeEventListener('offline', disconnected); window.removeEventListener('momentum-sw-update', update); window.removeEventListener('beforeinstallprompt', install) }
   }, [])
   if (online && !updateReady && !installPrompt) return null
   const applyUpdate = async () => {
@@ -32,8 +36,8 @@ export function PwaStatus() {
     setInstallPrompt(null)
   }
   return <aside className={`pwa-status ${online ? '' : 'offline'}`} role="status">
-    <span>{!online ? 'Çevrimdışısın · değişiklikler bu cihazda güvende' : updateReady ? 'Momentum’un yeni sürümü hazır' : 'Momentum’u cihazına kurabilirsin'}</span>
-    {updateReady && <button type="button" onClick={() => void applyUpdate()}>Güncelle</button>}
-    {!updateReady && online && installPrompt && <button type="button" onClick={() => void install()}>Uygulamayı kur</button>}
+    <span>{error || (!online ? 'Çevrimdışısın · değişiklikler bu cihazda güvende' : updateReady ? 'Momentum’un yeni sürümü hazır' : 'Momentum’u cihazına kurabilirsin')}</span>
+    {updateReady && <button type="button" onClick={() => { setError(''); void applyUpdate().catch(() => setError('Güncelleme başlatılamadı. Tekrar dene.')) }}>Güncelle</button>}
+    {!updateReady && online && installPrompt && <button type="button" onClick={() => { setError(''); void install().catch(() => setError('Kurulum başlatılamadı. Tekrar dene.')) }}>Uygulamayı kur</button>}
   </aside>
 }

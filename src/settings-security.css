@@ -127,15 +127,30 @@
 .trash-list button { flex: none; border: 1px solid #5ee4bb55; border-radius: 7px; padding: 8px 10px; color: #9de9d0; background: #1d61563d; font-size: 12px; font-weight: 800; }
 .trash-list button:disabled { opacity: .45; cursor: not-allowed; }
 .external-backup-panel code { color: #a9ead5; }
+.external-backup-setup { display: grid; gap: 8px; border: 1px solid #7aa2ff38; border-radius: 10px; padding: 12px 13px; background: #18213b75; }
+.external-backup-setup > strong { color: #e2e9ff; font-size: 13px; }
+.external-backup-setup ol { display: grid; gap: 7px; margin: 0; padding-left: 19px; color: #aebbd7; font-size: 12px; line-height: 1.5; }
+.external-backup-setup a { color: #a9c2ff; font-weight: 800; }
 .external-backup-state { display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 10px; border: 1px solid #5ee4bb3b; border-radius: 9px; padding: 9px 10px; background: #10251f45; }
 .external-backup-state > span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; color: #9de9d0; background: #1d61563d; }
 .external-backup-state > div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .external-backup-state strong { overflow: hidden; color: #dce9f7; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .external-backup-state small { color: #8f9ab9; font-size: 11px; }
+.external-backup-state.needs-attention { border-color: #d9a54f55; background: #4e371b35; }
+.external-backup-state.needs-attention > span { color: #ffd38a; background: #6c4a203d; }
 .external-backup-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
 .external-backup-actions .timer-button { margin-top: 0; }
 .external-backup-actions button:not(.timer-button) { border: 1px solid #ffffff18; border-radius: 8px; padding: 9px; color: #b9c5dd; background: #20283b; font-size: 12px; font-weight: 750; }
 .external-backup-actions button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Data settings use the same light surfaces as the surrounding dialog. */
+html[data-theme='light'] .settings-modal :is(.database-storage-state,.cloud-account,.feedback-panel form,.gemini-settings,.import-preview,.history-preview,.history-preview-list > div,.trash-list > div,.external-backup-setup,.external-backup-state,.automatic-backup-list > div) { background: var(--surface-inset); border-color: var(--line); }
+html[data-theme='light'] .settings-modal :is(.gemini-help,.database-storage-state small,.cloud-account > p,.cloud-actions > p,.cloud-auth-form label,.feedback-panel form > label,.trash-list small,.external-backup-state small,.external-backup-setup ol,.history-preview-list time,.import-overwrite-note) { color: var(--text-muted); }
+html[data-theme='light'] .settings-modal .toggle-label { color: var(--text-muted) !important; }
+html[data-theme='light'] .settings-modal :is(.cloud-status,.feedback-status,.gemini-status,.backup-store-status,.import-status) { color: var(--ink); background: var(--accent-soft); }
+html[data-theme='light'] .settings-modal :is(.cloud-heading > span,.cloud-auth-form button,.cloud-actions button,.trash-list button,.external-backup-actions button:not(.timer-button),.backup-export-grid .secondary) { color: var(--ink); background: var(--accent-soft); border-color: var(--line); }
+html[data-theme='light'] .settings-modal :is(.feedback-panel a,.external-backup-setup a,.external-backup-panel code,.history-preview-list span) { color: var(--accent-ink); }
+html[data-theme='light'] .settings-modal :is(.backup-warning,.cloud-account .cloud-warning,.database-storage-state.fallback strong) { color: var(--warm); }
 
 @media (max-width: 460px) {
   .gemini-key-row { flex-direction: column; }

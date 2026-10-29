@@ -1,0 +1,26 @@
+# Verification record
+
+## 29 October 2026 source snapshot
+
+The current uncommitted source from the original development folder was copied into an independent preparation branch. The copy operation compared SHA-256 hashes for all 63 changed/new source files before documentation changes. Personal environment files and installed dependencies were not part of that copy.
+
+`npm run check` passed against that source on Windows:
+
+| Check | Result |
+| --- | --- |
+| Node unit and regression tests | 64 passed, 0 failed, 0 skipped |
+| ESLint | Passed |
+| TypeScript | Passed |
+| Static assets / PWA document checks | Passed |
+| Production build | Passed |
+
+An initial restricted execution failed on temporary-file rename and loopback HTTP permissions. Repeating the same command in the normal local environment passed; application behavior was not changed to suppress those tests.
+
+## Checks tracked separately
+
+- Playwright browser scenarios are separate from `npm run check`.
+- Production-preview PWA checks are separate from development-server scenarios.
+- Live Gemini/Supabase/Web Push behavior, physical-device sync and actual Google Drive remote upload are separate acceptance checks.
+- Existing hosted screenshots are not evidence that this source snapshot has been deployed.
+
+Update this record with actual browser and CI results before making a release-readiness claim.

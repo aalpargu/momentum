@@ -11,6 +11,7 @@ import './forms.css'
 import './productivity.css'
 import './experience.css'
 import './product-ready.css'
+import './studio.css'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { analyticsOptOutKey, recordDiagnostic } from './lib/diagnostics'
@@ -22,7 +23,8 @@ window.addEventListener('unhandledrejection', event => {
 })
 
 function privacySafePageView(event: BeforeSendEvent) {
-  if (localStorage.getItem(analyticsOptOutKey) === '1') return null
+  try { if (localStorage.getItem(analyticsOptOutKey) === '1') return null }
+  catch { return null }
   const url = new URL(event.url)
   const tab = url.searchParams.get('tab')
   url.search = ['habits', 'journal', 'progress', 'calendar'].includes(String(tab)) ? `?tab=${tab}` : ''
@@ -33,7 +35,7 @@ function privacySafePageView(event: BeforeSendEvent) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary><App /></ErrorBoundary>
-    <Analytics beforeSend={privacySafePageView} />
+    {import.meta.env.PROD && !['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname) && <Analytics beforeSend={privacySafePageView} />}
   </StrictMode>,
 )
 

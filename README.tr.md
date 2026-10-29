@@ -1,0 +1,136 @@
+# Momentum
+
+Momentum; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekran süresini ve uzun vadeli hedefleri tek yerde takip eden local-first bir React PWA'dır.
+
+> Durum: v1.2.1. Hesap, RLS korumalı bulut senkronizasyonu, sunucu taraflı AI ve isteğe bağlı Web Push hatırlatıcıları Supabase üzerinden çalışır. Proje, ücretli alan adı veya ücretli servis gerektirmeden sağlayıcıların ücretsiz katmanlarına göre yapılandırılmıştır.
+
+**Canlı demo:** [momentum-kappa-sepia.vercel.app](https://momentum-kappa-sepia.vercel.app)
+
+![Momentum bugün ekranı](outputs/ui-ux/today-desktop.png)
+
+## Öne çıkanlar
+
+- Niyet ve kapanış notu destekli, mola/tur ayarlı tam ekran odak zamanlayıcısı
+- Gün seçimi ve geçici dondurma destekli minimum/ideal alışkanlık takibi
+- Üç iş sınırı olmayan yapılacaklar listesi; tik, üstünü çizme, durum filtreleri ve dünden iş taşıma
+- İşe bağlı “Bu işe çalış” zamanlayıcısı, hatırlanan kategori ve iş başına kayıtlı çalışma süresi
+- Ana ekranda düzenlenebilir günlük kayıtlar, haftalık değerlendirme ve kilometre taşlı hedefler
+- Takvim blokları, `.ics` dışa aktarma ve evrensel hızlı kayıt
+- Ekran süresi kaydı, görsel sıkıştırma ve Gemini destekli sınıflandırma
+- Tek hafta/ay seçimiyle toplam, günlük ortalama, hedef günleri ve konu dağılımı; açılır ayrıntılı analizler
+- IndexedDB ana deposu, otomatik kurtarma sürümleri, doğrulanan JSON yedekleri ve seçilen OneDrive/Google Drive yerel klasörüne otomatik kopya
+- Açık/koyu/sistem teması, erişilebilir klavye akışları ve mobil alt gezinme
+- Sürümlü PWA kurulumu, çevrimdışı uygulama kabuğu ve güncelleme bildirimi
+- İsteğe bağlı hesap, cihazlar arası çakışma korumalı senkronizasyon ve hesap silme
+- 30 günlük yerel çöp kutusu, açık izinli hata raporu ve cihaz bazında analiz kapatma
+- Uygulama kapalıyken de çalışan, hesap ve cihaz bazında kapatılabilen standart Web Push hatırlatıcıları
+
+## Mimari
+
+```text
+React PWA ──önce──> IndexedDB
+    │
+    ├── isteğe bağlı oturum ──> Supabase Auth
+    ├── revizyon kontrollü yedek ──> PostgreSQL + RLS
+    ├── zamanlanmış hatırlatıcı ──> Supabase Cron + Web Push
+    └── ekran görüntüsü ──> kimlik doğrulanan Edge Function ──> Gemini
+```
+
+Uygulama hesap olmadan çalışır. Hesap bağlandığında yerel kayıt ve bulut kaydı otomatik olarak birleştirilmez; kullanıcı ilk seferde hangisinin esas alınacağını seçer. Sonraki yazımlar revizyon kontrolüyle yapılır, böylece başka cihazdaki daha yeni veri sessizce ezilmez.
+
+## Teknoloji
+
+- React 19, TypeScript ve Vite
+- IndexedDB tabanlı local-first veri katmanı
+- Supabase Auth, PostgreSQL ve Row Level Security (v1.0)
+- Supabase Edge Functions üzerinden Gemini API (v1.0)
+- Node test runner ve GitHub Actions (v1.0)
+- Gizlilik filtreli Vercel Web Analytics ve Supabase geri bildirim tablosu (v1.1)
+- File System Access tabanlı cihaz dışı yedek ve Supabase Cron/Web Push (v1.2)
+
+## Yerel geliştirme
+
+Gereksinim: Node.js 24.x (`package.json` ile aynı sürüm).
+
+```bash
+npm ci
+npm run dev
+```
+
+Üretim doğrulaması:
+
+```bash
+npm run check
+```
+
+Kritik masaüstü ve mobil kullanıcı akışları:
+
+```bash
+npx playwright install chromium firefox webkit
+npm run test:e2e
+```
+
+Production paketi ve çevrimdışı PWA akışı için:
+
+```bash
+npm run build
+npm run test:e2e -- --production
+```
+
+Bulut yarış testi geliştirme sunucusunda izole bir servis taklidi kullanır; gerçek hesap verisi göndermez. Production testinde bu test atlanır, çevrimdışı açılış testi çalışır.
+
+## Google Drive klasör yedeği
+
+1. [Google Drive for desktop](https://www.google.com/drive/download/) uygulamasını kurup Google hesabınızla giriş yapın.
+2. Dosya Gezgini'nde Google Drive → Drive'ım altında `Momentum Yedekleri` klasörünü oluşturun.
+3. Momentum'u yerel `Momentum.cmd` kısayolundan açın. Yerel sunucu Drive klasörünü otomatik bulur; Ayarlar → Veri yönetimi bölümünde **Google Drive bağlı** durumu görünür.
+4. İlk açılıştan sonra klasörde `momentum-latest.json` ile günün `momentum-YYYY-AA-GG.json` dosyasının bulunduğunu doğrulayın. Google Drive simgesinde eşitlemenin tamamlandığını da kontrol edin.
+
+Momentum her başarılı veri değişikliğinden sonra iki dosyayı atomik biçimde yazar ve kaydedilen içeriği tekrar okuyarak doğrular. Google Drive for desktop klasörü buluta taşır. Canlı web sürümünde yerel sunucu bulunmadığında masaüstü Chrome ve Edge için kullanıcı tarafından seçilen klasör yedeği yedek yöntem olarak kullanılabilir.
+
+## Ortam değişkenleri
+
+`.env.example` dosyasını `.env.local` adıyla kopyalayın ve Supabase projenizin browser için güvenli değerlerini girin. Secret veya service-role anahtarlarını `VITE_` ile başlayan değişkenlere koymayın; bu değişkenler tarayıcı paketine dahil edilir.
+
+Bulut değerleri tanımlı değilse Momentum hesap özelliğini kapalı tutarak yerel çalışmaya devam eder.
+
+Supabase veritabanı, Auth ve Edge Function kurulumu için [Supabase kurulum notlarına](supabase/README.md) bakın.
+
+## Production deploy
+
+Mevcut production ortamı Vercel üzerindedir; Supabase Auth yönlendirmeleri canlı alan adına bağlıdır. Yeni sürümü yayımlamak için aşağıdaki yapılandırmayı doğrulayıp ana dal dağıtımını çalıştırın.
+
+1. Ücretsiz Supabase projesini oluşturup migration'ları ve Edge Function'ları deploy edin.
+2. Projeyi GitHub'a gönderin ve Vercel'e bağlayın.
+3. Vercel Environment Variables alanına `VITE_SUPABASE_URL` ile `VITE_SUPABASE_PUBLISHABLE_KEY` değerlerini ekleyin.
+4. Vercel adresini Supabase Authentication URL Configuration alanındaki Site URL ve Redirect URLs listesine ekleyin.
+5. Canlı uygulamada kendi hesabınla giriş, iki yönlü senkronizasyon, bildirim izni ve AI analizini doğrulayın. Kalıcı test hesabı veya service-role anahtarı kullanan test uç noktası oluşturmayın.
+
+Ücret politikası: Vercel Hobby, Supabase Free ve herkese açık depolar için GitHub Actions ücretsiz kotası dışına çıkılmamalıdır. Özel alan adı, ücretli izleme hizmeti veya plan yükseltmesi zorunlu değildir. Sağlayıcı limitleri dolarsa kapasite satın almak yerine özellik geçici olarak sınırlandırılmalıdır.
+
+Vercel güvenlik başlıkları [vercel.json](vercel.json), her push/PR doğrulaması ise [.github/workflows/ci.yml](.github/workflows/ci.yml) içinde tanımlıdır.
+
+## Veri güvenliği
+
+- Kullanıcı verisi varsayılan olarak cihazdaki IndexedDB'de tutulur.
+- Bulut senkronizasyonu isteğe bağlıdır.
+- Bulut kayıtları kullanıcı kimliğiyle ayrılır ve PostgreSQL RLS politikalarıyla korunur.
+- Gemini anahtarı istemciye gönderilmez; AI çağrıları kimlik doğrulanan server-side function üzerinden yapılır.
+- Ekran görüntüleri analiz amacı dışında kalıcı olarak saklanmaz.
+- Anonim sayfa istatistikleri ayarlardan kapatılabilir; üretkenlik içeriği analiz olaylarına eklenmez.
+- Geri bildirim yalnız kullanıcı açıkça gönderdiğinde yazılır ve sunucuda günlük hız sınırına tabidir.
+- Push abonelikleri hesaba bağlıdır; tarayıcı uç noktaları yalnız sunucu fonksiyonu tarafından işlenir ve oturum kapatılırken cihaz bağlantısı kaldırılır.
+- Klasör yedeği yalnız kullanıcı bir klasör seçip yazma izni verdiğinde çalışır; uygulama klasörün diğer içeriklerini yüklemez.
+
+## Yol haritası
+
+- [x] Güvenilir yerel kayıt, kurtarma ve yedekleme
+- [x] Üretkenlik panelleri ve Gemini destekli ekran süresi ayrıştırma
+- [x] İsteğe bağlı hesap oluşturma ve giriş
+- [x] Çakışma korumalı cihazlar arası bulut senkronizasyonu
+- [x] Gemini çağrısını kimlik doğrulanan Edge Function'a taşıma
+- [x] Test, tip kontrolü ve build için GitHub Actions
+- [x] Supabase ve Vercel production ortamlarını oluşturup canlıya alma
+- [x] Uygulama kapalıyken Web Push hatırlatıcıları
+- [x] Ücretsiz, kullanıcı denetimli cihaz dışı klasör yedekleri
+- [x] Chromium, Firefox ve WebKit tarayıcı matrisi

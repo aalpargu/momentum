@@ -58,7 +58,9 @@ test('milestones fire only on new crossings; undo and retry cannot repeat acknow
   assert.equal(newMilestones({ ...before, experience: { recentEntries: [], seenMilestones: ['hours:10'] } }, after).length, 0)
   const streak = empty()
   for (let day = 1; day <= 7; day++) streak.habitLog['2026-09-0' + day] = { reading: { status: 'minimum' } }
-  assert.deepEqual(newMilestones(before, streak).map(([id]) => id), ['streak:7'])
+  assert.deepEqual(newMilestones(before, streak).map(([id]) => id), [])
+  for (let day = 1; day <= 7; day++) streak.sessions.push({ ...after.sessions[0], id: String(day), date: '2026-09-0' + day, seconds: 4 * 3600 })
+  assert.deepEqual(newMilestones(before, streak).map(([id]) => id), ['hours:10', 'streak:7'])
   assert.deepEqual(newMilestones(before, { ...before, goals: [{ id: 'goal', title: 'Kitap', area: 'Bilgi', unit: 'sayfa', target: 20, activity: 'manual', manualProgress: 20 }] }).map(([id]) => id), ['goal:goal'])
 })
 test('daily time limits are checked against the final state of an operation', () => {
