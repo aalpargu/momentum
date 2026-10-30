@@ -26,3 +26,19 @@ test('duration edits safely turn measured sessions into manual records', () => {
   assert.equal(updateFocusSession(session, { title: 'Coding', area: 'Kariyer', seconds: 2400 }).source, 'manual')
   assert.equal(updateFocusSession(session, { title: 'Üniversite', area: 'Eğitim', seconds: 1800 }).source, 'timer')
 })
+
+test('crossing local midnight preserves date totals and excludes the overnight pause', () => {
+  const start = new Date(2026, 7, 20, 23, 30).toISOString()
+  const pause = new Date(2026, 7, 21, 0, 30).toISOString()
+  const resume = new Date(2026, 7, 21, 1, 0).toISOString()
+  const end = new Date(2026, 7, 21, 1, 30).toISOString()
+  const sessions = buildTimedFocusSessions({ id: 'midnight', title: 'Kodlama', area: 'Kariyer', segments: [{ startedAt: start, endedAt: pause }, { startedAt: resume, endedAt: end }] }, Date.parse(end))
+  assert.deepEqual(sessions.map(s => [s.date, s.seconds]), [['2026-08-20', 1800], ['2026-08-21', 3600]])
+  for (const session of sessions) assert.doesNotThrow(() => validateFocusTiming(session, session))
+})
+test('fractional seconds across several days remain valid when the timer is finally saved', () => {
+  const segments = [1, 2, 3, 4].map(day => ({ startedAt: new Date(2026, 7, day, 12, 0, 0, 0).toISOString(), endedAt: new Date(2026, 7, day, 12, 0, 0, 800).toISOString() }))
+  const sessions = buildTimedFocusSessions({ id: 'fractions', title: 'Kodlama', area: 'Kariyer', segments }, Date.parse(segments.at(-1)!.endedAt))
+  assert.equal(sessions.reduce((sum, s) => sum + s.seconds, 0), 3)
+  for (const session of sessions) assert.doesNotThrow(() => validateFocusTiming(session, session))
+})

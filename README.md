@@ -1,116 +1,111 @@
 # Momentum
 
-Momentum; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekran süresini ve uzun vadeli hedefleri tek yerde takip eden local-first bir React PWA'dır.
+A personal productivity PWA that brings focus sessions, tasks, habits, screen-time records and long-term goals into one workspace. Everyday records are saved locally; accounts, cloud sync and AI-assisted screen-time analysis are optional.
 
-> Durum: v1.2.1. Hesap, RLS korumalı bulut senkronizasyonu, sunucu taraflı AI ve isteğe bağlı Web Push hatırlatıcıları Supabase üzerinden çalışır. Proje, ücretli alan adı veya ücretli servis gerektirmeden sağlayıcıların ücretsiz katmanlarına göre yapılandırılmıştır.
+[Türkçe](README.tr.md) · [Hosted app](https://momentum-kappa-sepia.vercel.app) · [Architecture and decisions](docs/ARCHITECTURE.md) · [Verification](docs/VERIFICATION.md)
 
-**Canlı demo:** [momentum-kappa-sepia.vercel.app](https://momentum-kappa-sepia.vercel.app)
+![Momentum dashboard](outputs/ui-ux/today-desktop.png)
 
-![Momentum bugün ekranı](outputs/ui-ux/today-desktop.png)
+> This maintenance update brings the current saved development source into the repository. The hosted app and the existing screenshot may show an earlier interface. The package version remains `1.2.1`; this is a source update, not a new release announcement.
 
-## Öne çıkanlar
+## Why I built it
 
-- Niyet ve kapanış notu destekli, mola/tur ayarlı tam ekran odak zamanlayıcısı
-- Gün seçimi ve geçici dondurma destekli minimum/ideal alışkanlık takibi
-- Dünden öncelik taşıma, haftalık değerlendirme ve kilometre taşlı hedefler
-- Takvim blokları, `.ics` dışa aktarma ve evrensel hızlı kayıt
-- Ekran süresi kaydı, görsel sıkıştırma ve Gemini destekli sınıflandırma
-- Günlük, haftalık ve aylık üretkenlik raporları
-- IndexedDB ana deposu, otomatik kurtarma sürümleri, doğrulanan JSON yedekleri ve seçilen OneDrive/Google Drive yerel klasörüne otomatik kopya
-- Açık/koyu/sistem teması, erişilebilir klavye akışları ve mobil alt gezinme
-- Sürümlü PWA kurulumu, çevrimdışı uygulama kabuğu ve güncelleme bildirimi
-- İsteğe bağlı hesap, cihazlar arası çakışma korumalı senkronizasyon ve hesap silme
-- 30 günlük yerel çöp kutusu, açık izinli hata raporu ve cihaz bazında analiz kapatma
-- Uygulama kapalıyken de çalışan, hesap ve cihaz bazında kapatılabilen standart Web Push hatırlatıcıları
+I wanted one place to plan useful work and compare the plan with time actually recorded. A task list alone does not show where time went; a timer alone does not connect sessions to daily priorities. Momentum connects those records while keeping the core workflow available without an account.
 
-## Mimari
+## What it does
 
-```text
-React PWA ──önce──> IndexedDB
-    │
-    ├── isteğe bağlı oturum ──> Supabase Auth
-    ├── revizyon kontrollü yedek ──> PostgreSQL + RLS
-    ├── zamanlanmış hatırlatıcı ──> Supabase Cron + Web Push
-    └── ekran görüntüsü ──> kimlik doğrulanan Edge Function ──> Gemini
+| Workflow | Implemented behavior |
+| --- | --- |
+| Focus | Configurable work/break sessions, intention and closing notes, task-linked timers and saved session history. |
+| Planning | Tasks with categories and completion filters, unfinished-task carryover, calendar blocks, `.ics` export and quick capture. |
+| Habits and goals | Minimum/ideal habit targets, selected weekdays, temporary freezes, weekly reviews and milestone-based goals. |
+| Reporting | Daily records, weekly/monthly views, topic totals and comparisons built from recorded sessions. |
+| Screen time | Manual entries and optional Gemini analysis of a user-selected screen-time screenshot. |
+| Data recovery | IndexedDB storage, recovery snapshots, validated JSON imports/exports and a local trash history. |
+| Device sync | Optional Supabase accounts with explicit initial local/cloud selection and revision-checked writes. |
+| Reminders | Optional Web Push subscriptions managed per account and device. Browser and OS support still apply. |
+| Desktop backup | A local companion server can write verified backups to a Google Drive for desktop folder; supported browsers can also use a user-selected folder. |
+
+## Technology
+
+- **UI:** React 19, TypeScript, Vite, responsive CSS and accessible modal flows.
+- **Local storage:** IndexedDB, versioned state, recovery snapshots and JSON backup validation.
+- **Optional backend:** Supabase Auth, PostgreSQL with Row Level Security and Edge Functions.
+- **Applied AI:** Gemini API behind an authenticated server function for screen-time screenshot interpretation.
+- **Verification:** Node test runner, ESLint, TypeScript, Playwright and GitHub Actions.
+- **Hosting:** The existing hosted application uses Vercel; cloud features use Supabase.
+
+The AI feature integrates an existing model API. It does not train a model, and core productivity features do not require an AI provider.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    UI[React interface] --> LOCAL[IndexedDB and recovery snapshots]
+    UI --> AUTH[Optional Supabase Auth]
+    AUTH --> SYNC[Revision-checked PostgreSQL sync]
+    AUTH --> EDGE[Authenticated Edge Function]
+    EDGE --> GEMINI[Gemini screenshot analysis]
+    UI --> BACKUP[Optional local backup companion]
+    AUTH --> PUSH[Optional Web Push reminders]
 ```
 
-Uygulama hesap olmadan çalışır. Hesap bağlandığında yerel kayıt ve bulut kaydı otomatik olarak birleştirilmez; kullanıcı ilk seferde hangisinin esas alınacağını seçer. Sonraki yazımlar revizyon kontrolüyle yapılır, böylece başka cihazdaki daha yeni veri sessizce ezilmez.
+The app stores records locally before optional cloud synchronization. On the first account connection, the user chooses which state to keep rather than silently merging unrelated records. Subsequent cloud writes carry a revision so an older device does not overwrite a newer state without a conflict being detected.
 
-## Teknoloji
+See [architecture and tradeoffs](docs/ARCHITECTURE.md) for storage, timing, AI and backup boundaries.
 
-- React 19, TypeScript ve Vite
-- IndexedDB tabanlı local-first veri katmanı
-- Supabase Auth, PostgreSQL ve Row Level Security (v1.0)
-- Supabase Edge Functions üzerinden Gemini API (v1.0)
-- Node test runner ve GitHub Actions (v1.0)
-- Gizlilik filtreli Vercel Web Analytics ve Supabase geri bildirim tablosu (v1.1)
-- File System Access tabanlı cihaz dışı yedek ve Supabase Cron/Web Push (v1.2)
+## Run locally
 
-## Yerel geliştirme
-
-Gereksinim: Node.js 22.12 veya daha yeni bir sürüm.
+Use **Node.js 24.x**, matching `package.json`.
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Üretim doğrulaması:
+Without cloud configuration, the application keeps its local workflow available and disables account features. To enable those features, copy `.env.example` to `.env.local` and add your own Supabase project URL and publishable key. Instructions for database migrations and Edge Functions are in [supabase/README.md](supabase/README.md).
+
+Only browser-safe values belong in `VITE_` variables. Provider secrets and service-role keys belong in server-side configuration.
+
+## Verify the source
 
 ```bash
 npm run check
 ```
 
-Kritik masaüstü ve mobil kullanıcı akışları:
+This runs unit/regression tests, lint, TypeScript, static asset checks and a production build.
 
 ```bash
 npx playwright install chromium firefox webkit
 npm run test:e2e
 ```
 
-## Ortam değişkenleri
+To test the built application and offline PWA behavior:
 
-`.env.example` dosyasını `.env.local` adıyla kopyalayın ve Supabase projenizin browser için güvenli değerlerini girin. Secret veya service-role anahtarlarını `VITE_` ile başlayan değişkenlere koymayın; bu değişkenler tarayıcı paketine dahil edilir.
+```bash
+npm run build
+npm run test:e2e -- --production
+```
 
-Bulut değerleri tanımlı değilse Momentum hesap özelliğini kapalı tutarak yerel çalışmaya devam eder.
+Development cloud-conflict tests use an isolated service mock. Passing those tests does not establish live provider behavior or successful synchronization between physical devices. Current run results and remaining checks are recorded in [verification](docs/VERIFICATION.md).
 
-Supabase veritabanı, Auth ve Edge Function kurulumu için [Supabase kurulum notlarına](supabase/README.md) bakın.
+## Optional desktop backup
 
-## Production deploy
+The Windows launcher `Momentum.cmd` starts the local companion. The companion can discover a Google Drive for desktop folder and write a latest backup plus a dated backup. Writes are verified after saving. The Google Drive desktop application performs the actual remote upload; a successful local write alone does not confirm cloud upload.
 
-Mevcut production ortamı Vercel üzerindedir; Supabase Auth yönlendirmeleri canlı alan adına bağlıdır. Yeni sürümü yayımlamak için aşağıdaki yapılandırmayı doğrulayıp ana dal dağıtımını çalıştırın.
+The web-hosted app cannot access this local server. On compatible desktop browsers, the alternative folder workflow requires the user to select a folder and grant permission. See [the Turkish guide](README.tr.md#google-drive-klasör-yedeği) for the existing setup steps.
 
-1. Ücretsiz Supabase projesini oluşturup migration'ları ve Edge Function'ları deploy edin.
-2. Projeyi GitHub'a gönderin ve Vercel'e bağlayın.
-3. Vercel Environment Variables alanına `VITE_SUPABASE_URL` ile `VITE_SUPABASE_PUBLISHABLE_KEY` değerlerini ekleyin.
-4. Vercel adresini Supabase Authentication URL Configuration alanındaki Site URL ve Redirect URLs listesine ekleyin.
-5. Canlı uygulamada kendi hesabınla giriş, iki yönlü senkronizasyon, bildirim izni ve AI analizini doğrulayın. Kalıcı test hesabı veya service-role anahtarı kullanan test uç noktası oluşturmayın.
+## Privacy and limits
 
-Ücret politikası: Vercel Hobby, Supabase Free ve herkese açık depolar için GitHub Actions ücretsiz kotası dışına çıkılmamalıdır. Özel alan adı, ücretli izleme hizmeti veya plan yükseltmesi zorunlu değildir. Sağlayıcı limitleri dolarsa kapasite satın almak yerine özellik geçici olarak sınırlandırılmalıdır.
+- Local records stay in the browser unless the user enables a cloud feature or exports data.
+- Cloud records are scoped to the authenticated account and protected by database RLS policies.
+- Gemini requests go through a server function; the provider key is not included in the browser bundle.
+- Optional analytics can be disabled; productivity content is excluded from analytics events.
+- Push delivery, persistent storage and folder access depend on the browser, OS and permissions.
+- Browser storage can be cleared. Exported or external backups remain important for recovery.
 
-Vercel güvenlik başlıkları [vercel.json](vercel.json), her push/PR doğrulaması ise [.github/workflows/ci.yml](.github/workflows/ci.yml) içinde tanımlıdır.
+## Project status
 
-## Veri güvenliği
+Momentum is a personal application with a hosted version and an actively developed source tree. Current checks and remaining browser/device checks are listed in the verification record.
 
-- Kullanıcı verisi varsayılan olarak cihazdaki IndexedDB'de tutulur.
-- Bulut senkronizasyonu isteğe bağlıdır.
-- Bulut kayıtları kullanıcı kimliğiyle ayrılır ve PostgreSQL RLS politikalarıyla korunur.
-- Gemini anahtarı istemciye gönderilmez; AI çağrıları kimlik doğrulanan server-side function üzerinden yapılır.
-- Ekran görüntüleri analiz amacı dışında kalıcı olarak saklanmaz.
-- Anonim sayfa istatistikleri ayarlardan kapatılabilir; üretkenlik içeriği analiz olaylarına eklenmez.
-- Geri bildirim yalnız kullanıcı açıkça gönderdiğinde yazılır ve sunucuda günlük hız sınırına tabidir.
-- Push abonelikleri hesaba bağlıdır; tarayıcı uç noktaları yalnız sunucu fonksiyonu tarafından işlenir ve oturum kapatılırken cihaz bağlantısı kaldırılır.
-- Klasör yedeği yalnız kullanıcı bir klasör seçip yazma izni verdiğinde çalışır; uygulama klasörün diğer içeriklerini yüklemez.
-
-## Yol haritası
-
-- [x] Güvenilir yerel kayıt, kurtarma ve yedekleme
-- [x] Üretkenlik panelleri ve Gemini destekli ekran süresi ayrıştırma
-- [x] İsteğe bağlı hesap oluşturma ve giriş
-- [x] Çakışma korumalı cihazlar arası bulut senkronizasyonu
-- [x] Gemini çağrısını kimlik doğrulanan Edge Function'a taşıma
-- [x] Test, tip kontrolü ve build için GitHub Actions
-- [x] Supabase ve Vercel production ortamlarını oluşturup canlıya alma
-- [x] Uygulama kapalıyken Web Push hatırlatıcıları
-- [x] Ücretsiz, kullanıcı denetimli cihaz dışı klasör yedekleri
-- [x] Chromium, Firefox ve WebKit tarayıcı matrisi
+See [CHANGELOG.md](CHANGELOG.md), [RELEASE.md](RELEASE.md), [OPERATIONS.md](OPERATIONS.md) and [SECURITY.md](SECURITY.md) for the existing release and maintenance notes.

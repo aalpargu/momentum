@@ -12,15 +12,21 @@ export function TrashPanel({ onRestore }: { onRestore: (item: TrashItem) => Prom
 
   const restore = async (item: TrashItem) => {
     setBusyId(item.id); setStatus('Kayıt geri yükleniyor…')
-    const result = await onRestore(item)
-    if (result.ok) { await removeTrashItem(item.id); await refresh(); setStatus(`${item.label} geri yüklendi.`) }
-    else setStatus(result.error ?? 'Kayıt geri yüklenemedi.')
-    setBusyId('')
+    let restored = false
+    try {
+      const result = await onRestore(item)
+      if (result.ok) { restored = true; await removeTrashItem(item.id); await refresh(); setStatus(`${item.label} geri yüklendi.`) }
+      else setStatus(result.error ?? 'Kayıt geri yüklenemedi.')
+    } catch { setStatus(restored ? 'Kayıt geri yüklendi, ancak çöp kutusundaki kopyası kaldırılamadı.' : 'Kayıt geri yüklenemedi; tekrar dene.') }
+    finally { setBusyId('') }
   }
 
   const empty = async () => {
     if (!await confirmAction('Çöp kutusundaki kurtarılabilir kayıtlar kalıcı olarak silinecek.', 'Çöp kutusunu boşalt', 'Kayıtları kalıcı sil')) return
-    setBusyId('all'); await clearTrashItems(); setItems([]); setStatus('Çöp kutusu boşaltıldı.'); setBusyId('')
+    setBusyId('all')
+    try { await clearTrashItems(); setItems([]); setStatus('Çöp kutusu boşaltıldı.') }
+    catch { setStatus('Çöp kutusu tamamen boşaltılamadı; tekrar dene.') }
+    finally { setBusyId('') }
   }
 
   return <section className="trash-panel">

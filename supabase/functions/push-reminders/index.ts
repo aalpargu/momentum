@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@^2'
 import webpush from 'npm:web-push@3.6.7'
+import { validPushEndpoint } from '../_shared/pushValidation.ts'
 
 type ReminderPreferences = {
   enabled: boolean
@@ -68,6 +69,7 @@ export default {
     let body: Record<string, unknown>
     try { body = await request.json() as Record<string, unknown> }
     catch { return response(request, { error: 'Geçersiz istek.' }, 400) }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return response(request, { error: 'Geçersiz istek.' }, 400)
 
     if (body.action === 'public-key') return response(request, { publicKey })
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
@@ -81,9 +83,10 @@ export default {
       let sent = 0
       let removed = 0
       for (const row of (data ?? []) as PushRow[]) {
+        if (!validPushEndpoint(row.endpoint)) continue
         try {
           const payload = JSON.stringify({ ...notification(row.notification_kind), url: '/', kind: row.notification_kind })
-          await webpush.sendNotification({ endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth_key } }, payload, { TTL: 60 * 60 * 6, urgency: 'normal' })
+          await webpush.sendNotification({ endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth_key } }, payload, { TTL: 60 * 60 * 6, urgency: 'normal', timeout: 10_000 })
           sent += 1
         } catch (error) {
           const statusCode = Number((error as { statusCode?: unknown })?.statusCode)
@@ -110,7 +113,7 @@ export default {
     }
 
     const endpoint = typeof body.endpoint === 'string' ? body.endpoint : ''
-    if (!endpoint.startsWith('https://') || endpoint.length > 2048) return response(request, { error: 'Push aboneliği geçersiz.' }, 400)
+    if (!validPushEndpoint(endpoint)) return response(request, { error: 'Push aboneliği geçersiz.' }, 400)
 
     if (body.action === 'unsubscribe') {
       const { error } = await admin.from('push_subscriptions').delete().eq('user_id', userData.user.id).eq('endpoint', endpoint)

@@ -102,6 +102,6 @@ test('all lazy-loaded sections and settings open without browser errors', async 
   const dataDialog = page.getByRole('dialog', { name: 'Veri yönetimi' })
   await expect(dataDialog).toBeVisible()
   await expect(dataDialog.getByText('TXT, Excel veya CSV’den doldur')).toBeVisible()
-  await expect(dataDialog.getByRole('heading', { name: 'Bulut klasörüne otomatik JSON' })).toBeVisible()
+  await expect(dataDialog.getByRole('heading', { name: 'Drive klasörüne otomatik ve doğrulanmış JSON' })).toBeVisible()
   expect(browserErrors).toEqual([])
 })

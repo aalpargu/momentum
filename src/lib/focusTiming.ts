@@ -1,6 +1,6 @@
 import type { Area, FocusSegment, FocusSession } from './domain'
 
-type ActiveTiming = { id: string; title: string; area: Area; segments: { startedAt: string; endedAt?: string }[]; intention?: string }
+type ActiveTiming = { id: string; title: string; area: Area; segments: { startedAt: string; endedAt?: string }[]; intention?: string; taskId?: string }
 type Timing = Pick<FocusSession, 'source' | 'timerSessionId' | 'segments'>
 
 // Split at local hour boundaries, preserving the recording timezone and pauses.
@@ -24,11 +24,14 @@ export function buildTimedFocusSessions(active: ActiveTiming, nowMs: number): Fo
   }
   const values = [...days.entries()]
   const duration = (segments: FocusSegment[]) => segments.reduce((sum, part) => sum + Date.parse(part.endedAt) - Date.parse(part.startedAt), 0)
-  let remaining = Math.floor(values.reduce((sum, [, segments]) => sum + duration(segments), 0) / 1000)
+  const milliseconds = values.map(([, segments]) => duration(segments))
+  const allocated = milliseconds.map(value => Math.floor(value / 1000))
+  const remainder = Math.floor(milliseconds.reduce((sum, value) => sum + value, 0) / 1000) - allocated.reduce((sum, value) => sum + value, 0)
+  // Allocate fractional seconds across dates without moving several seconds to the last day.
+  milliseconds.map((value, index) => ({ index, fraction: value % 1000 })).sort((a, b) => b.fraction - a.fraction || a.index - b.index).slice(0, remainder).forEach(({ index }) => allocated[index]++)
   return values.flatMap(([date, segments], index) => {
-    const seconds = index === values.length - 1 ? remaining : Math.floor(duration(segments) / 1000)
-    remaining -= seconds
-    return seconds > 0 ? [{ id: `${active.id}-${date}`, title: active.title, area: active.area, seconds, startedAt: segments[0].startedAt, date, source: 'timer' as const, timerSessionId: active.id, segments, ...(active.intention ? { intention: active.intention } : {}) }] : []
+    const seconds = allocated[index]
+    return seconds > 0 ? [{ id: `${active.id}-${date}`, title: active.title, area: active.area, seconds, startedAt: segments[0].startedAt, date, source: 'timer' as const, timerSessionId: active.id, segments, ...(active.taskId ? { taskId: active.taskId } : {}), ...(active.intention ? { intention: active.intention } : {}) }] : []
   })
 }
 

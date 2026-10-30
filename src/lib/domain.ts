@@ -3,11 +3,11 @@ import type { TrackedScreenKind } from './analytics'
 export type Area = string
 export type HabitStatus = 'minimum' | 'ideal' | 'partial'
 export type HabitEntry = { status: HabitStatus; amount?: number }
-export type Habit = { id: string; icon: string; name: string; area: Area; minimum: string; ideal: string; archived?: boolean; scheduleDays?: number[]; pausedUntil?: string }
+export type Habit = { id: string; icon: string; name: string; area: Area; minimum: string; ideal: string; archived?: boolean; scheduleDays?: number[]; pausedUntil?: string; pauseHistory?: { start: string; end: string }[] }
 export type FocusCategory = { id: string; title: string; area: Area; icon: string; archived?: boolean }
 export type FocusSegment = { startedAt: string; endedAt: string; offsetMinutes: number }
-export type FocusSession = { id: string; title: string; area: Area; seconds: number; startedAt: string; date: string; source?: 'timer' | 'manual'; timerSessionId?: string; segments?: FocusSegment[]; intention?: string; note?: string }
-export type DailyPlanItem = { id: string; text: string; completed: boolean; carriedFrom?: string }
+export type FocusSession = { id: string; title: string; area: Area; seconds: number; startedAt: string; date: string; source?: 'timer' | 'manual'; timerSessionId?: string; segments?: FocusSegment[]; intention?: string; note?: string; taskId?: string }
+export type DailyPlanItem = { id: string; text: string; completed: boolean; carriedFrom?: string; categoryId?: string }
 export type DailyReflection = { good: string; wasted: string; tomorrow: string }
 export type GoalUnit = 'saat' | 'kelime' | 'sayfa' | 'adet'
 export type GoalMilestone = { id: string; title: string; target: number }

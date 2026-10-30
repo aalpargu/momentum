@@ -1,13 +1,17 @@
 import { SaveFeedback, useSavedActions } from './components/SaveFeedback'
 import { Icon, AreaIcon, HabitRing } from './components/Icon'
+import { FocusDial } from './components/FocusDial'
 import { FocusView } from './components/FocusView'
 import { QuickCapture } from './components/QuickCapture'
 import { rememberEntry, saveFailure, validCalendarBlock, conflictsFor } from './lib/experience'
 import type { CalendarBlock, ExperienceState } from './lib/domain'
+import { TodaySessions } from './components/TodaySessions'
+import { productivityStreak, workTargetDates } from './lib/productivity'
+import { carryableTasks } from './lib/todos'
 import { TodayInsights } from './components/ProductivityInsights'
 import { buildTimedFocusSessions as focusSessionsFromActive, validateFocusTiming, updateFocusSession } from './lib/focusTiming'
 import { NumberInput } from './components/NumberInput'
-import { lazy, Suspense, type FormEvent, useEffect, useMemo, useState, useRef } from 'react'
+import { lazy, Suspense, type FormEvent, useEffect, useState, useRef } from 'react'
 import { AccessibleModal } from './components/AccessibleModal'
 import { OnboardingModal } from './components/OnboardingModal'
 import type { WastedEntry } from './components/ScreenTimePanel'
@@ -20,15 +24,16 @@ import { useCloudSync, type CloudSyncController } from './hooks/useCloudSync'
 import type { AppState, Area, DailyPlanItem, DailyReflection, FocusCategory, FocusSession, Goal, GoalMilestone, GoalUnit, Habit, HabitEntry, HabitStatus, ReminderSettings, ScreenTimeEntry, ScreenTimeSource, ThemePreference, UserSettings, WeeklyReview } from './lib/domain'
 import { collectAreas, defaultAreas, normalizeArea } from './lib/areas'
 import { PwaStatus } from './components/PwaStatus'
-import { habitIsDue } from './lib/habits'
+import { habitIsDue, habitStreak, updateHabitPause } from './lib/habits'
 import { confirmAction } from './components/confirmAction'
 import { DailyPlan, FocusNoteModal } from './components/PlanningCards'
 import { addTrashItem, removeTrashItem } from './lib/trashStore'
 import { restoreTrashItem, type TrashItem, type TrashKind } from './lib/trash'
-import { writeExternalBackup } from './lib/externalBackup'
+import { retryPendingExternalBackup, writeExternalBackup } from './lib/externalBackup'
+import { writeLocalServerBackup } from './lib/localServerBackup'
 
 type ActiveFocusSegment = { startedAt: string; endedAt?: string }
-type ActiveFocusSession = { version: 1; id: string; title: string; area: Area; startedAt: string; status: 'running' | 'paused'; segments: ActiveFocusSegment[]; intention?: string; targetSeconds?: number; breakMinutes?: number; rounds?: number; currentRound?: number; breakEndsAt?: string }
+type ActiveFocusSession = { version: 1; id: string; title: string; area: Area; startedAt: string; status: 'running' | 'paused'; segments: ActiveFocusSegment[]; intention?: string; taskId?: string; targetSeconds?: number; breakMinutes?: number; rounds?: number; currentRound?: number; roundStartSeconds?: number; breakEndsAt?: string }
 type BackupCandidate = { state: AppState; formatLabel: string; warnings: string[]; summary: { habits: number; sessions: number; habitEntries: number; plans: number; reflections: number; goals: number; screenTimeEntries: number } }
 type StateChangeResult = { ok: boolean; error?: string }
 type StorageMode = 'loading' | 'indexeddb' | 'localstorage-fallback'
@@ -76,8 +81,9 @@ function dateKey(date = new Date()) {
 }
 function previousDate(key: string) { const date = new Date(`${key}T12:00:00`); date.setDate(date.getDate() - 1); return dateKey(date) }
 function formatDuration(seconds: number) {
-  const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60); const secs = seconds % 60
-  return hours > 0 ? `${hours}s ${String(minutes).padStart(2, '0')}d` : `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60)
+  if (hours > 0) return `${hours} sa${minutes ? ` ${minutes} dk` : ''}`
+  return seconds > 0 && seconds < 60 ? `${seconds} sn` : `${minutes} dk`
 }
 function weekdayAndDate(date: Date) { return new Intl.DateTimeFormat('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date) }
 function readActiveFocus(): ActiveFocusSession | null {
@@ -86,7 +92,6 @@ function readActiveFocus(): ActiveFocusSession | null {
     if (!value || value.version !== 1 || typeof value.id !== 'string' || typeof value.title !== 'string' || !normalizeArea(value.area, '') || !['running', 'paused'].includes(String(value.status)) || !Array.isArray(value.segments) || value.segments.length === 0) return null
     const now = Date.now()
     const futureTolerance = 60_000
-    const maximumActiveAge = 7 * 24 * 60 * 60 * 1000
     const segments = value.segments.map((segment) => {
       const start = Date.parse(segment?.startedAt)
       const end = segment?.endedAt === undefined ? undefined : Date.parse(segment.endedAt)
@@ -96,7 +101,7 @@ function readActiveFocus(): ActiveFocusSession | null {
     const openSegments = segments.filter((segment) => !segment.endedAt)
     if (openSegments.length > 1 || (openSegments.length === 1 && segments.at(-1)?.endedAt) || (value.status === 'running') !== (openSegments.length === 1)) return null
     const startedAt = Date.parse(String(value.startedAt))
-    if (!Number.isFinite(startedAt) || startedAt !== Date.parse(segments[0].startedAt) || startedAt < now - maximumActiveAge) return null
+    if (!Number.isFinite(startedAt) || startedAt !== Date.parse(segments[0].startedAt)) return null
     for (let index = 0; index < segments.length; index += 1) {
       const segment = segments[index]
       if (index < segments.length - 1 && !segment.endedAt) return null
@@ -105,11 +110,9 @@ function readActiveFocus(): ActiveFocusSession | null {
         if (!previousEnd || Date.parse(segment.startedAt) < Date.parse(previousEnd)) return null
       }
     }
-    const lastBoundary = Date.parse(segments.at(-1)?.endedAt ?? new Date(now).toISOString())
-    if (lastBoundary - startedAt > maximumActiveAge) return null
     const positiveInteger = (candidate: unknown, maximum: number) => typeof candidate === 'number' && Number.isInteger(candidate) && candidate > 0 && candidate <= maximum ? candidate : undefined
     const breakEndsAt = typeof value.breakEndsAt === 'string' && Number.isFinite(Date.parse(value.breakEndsAt)) ? new Date(value.breakEndsAt).toISOString() : undefined
-    return { version: 1, id: value.id, title: value.title, area: value.area as Area, startedAt: new Date(startedAt).toISOString(), status: value.status as ActiveFocusSession['status'], segments, ...(typeof value.intention === 'string' && value.intention.trim() ? { intention: value.intention.trim().slice(0, 160) } : {}), ...(positiveInteger(value.targetSeconds, 10_800) ? { targetSeconds: positiveInteger(value.targetSeconds, 10_800) } : {}), ...(positiveInteger(value.breakMinutes, 60) ? { breakMinutes: positiveInteger(value.breakMinutes, 60) } : {}), ...(positiveInteger(value.rounds, 12) ? { rounds: positiveInteger(value.rounds, 12) } : {}), ...(positiveInteger(value.currentRound, 12) ? { currentRound: positiveInteger(value.currentRound, 12) } : {}), ...(breakEndsAt ? { breakEndsAt } : {}) }
+    return { version: 1, id: value.id, title: value.title, area: value.area as Area, startedAt: new Date(startedAt).toISOString(), status: value.status as ActiveFocusSession['status'], segments, ...(typeof value.taskId === 'string' && value.taskId.length <= 100 ? { taskId: value.taskId } : {}), ...(typeof value.intention === 'string' && value.intention.trim() ? { intention: value.intention.trim().slice(0, 160) } : {}), ...(positiveInteger(value.targetSeconds, 10_800) ? { targetSeconds: positiveInteger(value.targetSeconds, 10_800) } : {}), ...(positiveInteger(value.breakMinutes, 60) ? { breakMinutes: positiveInteger(value.breakMinutes, 60) } : {}), ...(positiveInteger(value.rounds, 12) ? { rounds: positiveInteger(value.rounds, 12) } : {}), ...(positiveInteger(value.currentRound, 12) ? { currentRound: positiveInteger(value.currentRound, 12) } : {}), ...(typeof value.roundStartSeconds === 'number' && Number.isFinite(value.roundStartSeconds) && value.roundStartSeconds >= 0 ? { roundStartSeconds: value.roundStartSeconds } : {}), ...(breakEndsAt ? { breakEndsAt } : {}) }
   } catch { return null }
 }
 function focusSegmentsAt(activeFocus: ActiveFocusSession, nowMs: number) {
@@ -166,10 +169,6 @@ function normalizedSettings(value?: Partial<UserSettings>): UserSettings {
 }
 function backupEnvelope(state: AppState) {
   return { format: backupFormat, version: backupVersion, exportedAt: new Date().toISOString(), data: state }
-}
-function writeFallbackState(payload: string) {
-  // Payload and recovery timestamp must succeed or fail as a single localStorage write.
-  localStorage.setItem(storageKey, JSON.stringify(backupEnvelope(JSON.parse(payload) as AppState)))
 }
 function importError(path: string, message: string): never { throw new Error(`${path}: ${message}`) }
 function importRecord(value: unknown, path: string): Record<string, unknown> {
@@ -271,7 +270,14 @@ function validateBackup(raw: unknown): BackupCandidate {
     const item = importRecord(value, `habits[${index}]`)
     const scheduleDays = item.scheduleDays === undefined ? undefined : importArray(item.scheduleDays, `habits[${index}].scheduleDays`, 7).map((day, dayIndex) => importNumber(day, `habits[${index}].scheduleDays[${dayIndex}]`, 0, 6, true))
     if (scheduleDays && new Set(scheduleDays).size !== scheduleDays.length) importError(`habits[${index}].scheduleDays`, 'aynı gün birden fazla kez kullanılamaz')
-    return { id: importId(item.id, `habits[${index}].id`), icon: importString(item.icon, `habits[${index}].icon`, 20), name: importString(item.name, `habits[${index}].name`, 100), area: importArea(item.area, `habits[${index}].area`), minimum: importString(item.minimum, `habits[${index}].minimum`, 100), ideal: importString(item.ideal, `habits[${index}].ideal`, 100), ...(item.archived === undefined ? {} : { archived: importBoolean(item.archived, `habits[${index}].archived`) }), ...(scheduleDays ? { scheduleDays } : {}), ...(item.pausedUntil === undefined || item.pausedUntil === '' ? {} : { pausedUntil: importDate(item.pausedUntil, `habits[${index}].pausedUntil`, true) }) }
+    const pauseHistory = item.pauseHistory === undefined ? undefined : importArray(item.pauseHistory, 'habit.pauseHistory', 10000).map(value => {
+      const period = importRecord(value, 'habit.pauseHistory')
+      const start = importDate(period.start, 'habit.pauseHistory.start')!
+      const end = importDate(period.end, 'habit.pauseHistory.end')!
+      if (end < start) importError('habit.pauseHistory', 'bitiş başlangıçtan önce olamaz')
+      return { start, end }
+    })
+    return { ...(pauseHistory ? { pauseHistory } : {}), id: importId(item.id, `habits[${index}].id`), icon: importString(item.icon, `habits[${index}].icon`, 20), name: importString(item.name, `habits[${index}].name`, 100), area: importArea(item.area, `habits[${index}].area`), minimum: importString(item.minimum, `habits[${index}].minimum`, 100), ideal: importString(item.ideal, `habits[${index}].ideal`, 100), ...(item.archived === undefined ? {} : { archived: importBoolean(item.archived, `habits[${index}].archived`) }), ...(scheduleDays ? { scheduleDays } : {}), ...(item.pausedUntil === undefined || item.pausedUntil === '' ? {} : { pausedUntil: importDate(item.pausedUntil, `habits[${index}].pausedUntil`, true) }) }
   })
   if (!habits.length) importError('habits', 'en az bir alışkanlık içermeli')
   rejectDuplicateIds(habits, 'habits')
@@ -286,7 +292,7 @@ function validateBackup(raw: unknown): BackupCandidate {
 
   const sessions = importArrayField(data, 'sessions', legacy, 100_000).map((value, index): FocusSession => {
     const item = importRecord(value, `sessions[${index}]`)
-    const session: FocusSession = { id: importId(item.id, `sessions[${index}].id`), title: importString(item.title, `sessions[${index}].title`, 100), area: importArea(item.area, `sessions[${index}].area`), seconds: importNumber(item.seconds, `sessions[${index}].seconds`, 1, 86_400, true), startedAt: importHistoricalIso(item.startedAt, `sessions[${index}].startedAt`, legacy, warnings), date: importDate(item.date, `sessions[${index}].date`)!, ...(item.intention === undefined ? {} : { intention: importString(item.intention, `sessions[${index}].intention`, 160, true) }), ...(item.note === undefined ? {} : { note: importString(item.note, `sessions[${index}].note`, 1_000, true) }) }
+    const session: FocusSession = { id: importId(item.id, `sessions[${index}].id`), title: importString(item.title, `sessions[${index}].title`, 100), area: importArea(item.area, `sessions[${index}].area`), seconds: importNumber(item.seconds, `sessions[${index}].seconds`, 1, 86_400, true), startedAt: importHistoricalIso(item.startedAt, `sessions[${index}].startedAt`, legacy, warnings), date: importDate(item.date, `sessions[${index}].date`)!, ...(item.intention === undefined ? {} : { intention: importString(item.intention, `sessions[${index}].intention`, 160, true) }), ...(item.taskId === undefined ? {} : { taskId: importId(item.taskId, `sessions[${index}].taskId`) }), ...(item.note === undefined ? {} : { note: importString(item.note, `sessions[${index}].note`, 1_000, true) }) }
     return { ...session, ...validateFocusTiming(item, session) }
   })
   rejectDuplicateIds(sessions, 'sessions')
@@ -312,10 +318,10 @@ function validateBackup(raw: unknown): BackupCandidate {
   const dailyPlans: AppState['dailyPlans'] = {}
   Object.entries(importObjectField(data, 'dailyPlans', legacy)).forEach(([dateValue, planValue]) => {
     const date = importDate(dateValue, `dailyPlans.${dateValue}`)!
-    const plan = importArray(planValue, `dailyPlans.${date}`, 3).map((value, index): DailyPlanItem => {
+    const plan = importArray(planValue, `dailyPlans.${date}`, 100_000).map((value, index): DailyPlanItem => {
       const item = importRecord(value, `dailyPlans.${date}[${index}]`)
       if (typeof item.completed !== 'boolean') importError(`dailyPlans.${date}[${index}].completed`, 'doğru/yanlış olmalı')
-      return { id: importId(item.id, `dailyPlans.${date}[${index}].id`), text: importString(item.text, `dailyPlans.${date}[${index}].text`, 100), completed: item.completed, ...(item.carriedFrom === undefined ? {} : { carriedFrom: importDate(item.carriedFrom, `dailyPlans.${date}[${index}].carriedFrom`)! }) }
+      return { id: importId(item.id, `dailyPlans.${date}[${index}].id`), text: importString(item.text, `dailyPlans.${date}[${index}].text`, 100), completed: item.completed, ...(item.categoryId === undefined ? {} : { categoryId: importId(item.categoryId, `dailyPlans.${date}[${index}].categoryId`) }), ...(item.carriedFrom === undefined ? {} : { carriedFrom: importDate(item.carriedFrom, `dailyPlans.${date}[${index}].carriedFrom`)! }) }
     })
     rejectDuplicateIds(plan, `dailyPlans.${date}`)
     dailyPlans[date] = plan
@@ -430,8 +436,11 @@ function validateBackup(raw: unknown): BackupCandidate {
   const state = { habits, focusCategories, sessions, habitLog, dailyPlans, reflections, goals, weeklyFocus, weeklyReviews, screenTimeEntries, settings, calendarBlocks, experience }
   return { state, formatLabel: legacy ? 'Eski sürümsüz yedek' : `Momentum yedeği v${backupVersion}`, warnings, summary: { habits: habits.length, sessions: sessions.length, habitEntries: Object.values(habitLog).reduce((sum, log) => sum + Object.keys(log).length, 0), plans: Object.values(dailyPlans).reduce((sum, plan) => sum + plan.length, 0), reflections: Object.keys(reflections).length, goals: goals.length, screenTimeEntries: screenTimeEntries.length } }
 }
+function readLocalPreference(key: string) {
+  try { return localStorage.getItem(key) } catch { return null }
+}
 function readState(): AppState {
-  const raw = localStorage.getItem(storageKey)
+  const raw = readLocalPreference(storageKey)
   if (!raw) return emptyState()
   try {
     return validateBackup(JSON.parse(raw)).state
@@ -441,12 +450,6 @@ function readState(): AppState {
     return emptyState()
   }
 }
-function getStreak(habitId: string, habitLog: AppState['habitLog'], today: string) {
-  const todayEntry = habitLog[today]?.[habitId]
-  let count = 0; let cursor = todayEntry && todayEntry.status !== 'partial' ? today : previousDate(today)
-  while (habitLog[cursor]?.[habitId] && habitLog[cursor][habitId].status !== 'partial') { count += 1; cursor = previousDate(cursor) }
-  return count
-}
 function parseHabitTarget(text: string) {
   const normalized = text.replace(',', '.')
   const match = normalized.match(/\d+(?:\.\d+)?/)
@@ -454,11 +457,6 @@ function parseHabitTarget(text: string) {
   const rawUnit = match ? normalized.replace(match[0], '').trim().toLocaleLowerCase('tr-TR') : normalized.trim().toLocaleLowerCase('tr-TR')
   const unit = /^(dk|dakika)$/.test(rawUnit) ? 'dakika' : rawUnit
   return { value: Number.isFinite(value) ? value : 0, unit, label: rawUnit }
-}
-function activityDates(state: AppState) {
-  const dates = new Set(state.sessions.filter((session) => session.seconds > 0).map((session) => session.date))
-  Object.entries(state.habitLog).forEach(([date, log]) => { if (Object.values(log).some((entry) => entry.status === 'minimum' || entry.status === 'ideal')) dates.add(date) })
-  return dates
 }
 function screenTimeMinutesForDate(state: AppState, date: string) {
   return state.screenTimeEntries.filter((entry) => entry.date === date).reduce((sum, entry) => sum + entry.minutes, 0)
@@ -479,6 +477,8 @@ function App() {
   const storageModeRef = useRef<StorageMode>('loading')
   const [recoveryNotice, setRecoveryNotice] = useState(startupRecoveryNeeded ? 'Eski ana veri kaydı bozuk görünüyor; doğrulanmış bir yedek aranıyor…' : '')
   const [activeFocus, setActiveFocus] = useState<ActiveFocusSession | null>(readActiveFocus)
+  const activeFocusRawRef = useRef<string | null>(null)
+  if (activeFocusRawRef.current === null && activeFocus) { try { activeFocusRawRef.current = localStorage.getItem(activeFocusStorageKey) } catch { /* Saving will surface the error. */ } }
   const initialState = state
   const initialFocusCategories = initialState.focusCategories.filter((category) => !category.archived)
   const [selected, setSelected] = useState(() => activeFocus ? { title: activeFocus.title, area: activeFocus.area, icon: initialState.focusCategories.find((option) => option.title === activeFocus.title)?.icon ?? '⏱️' } : initialFocusCategories[0] ?? defaultFocusCategories[0])
@@ -490,9 +490,12 @@ function App() {
   const [planDraft, setPlanDraft] = useState('')
   const [planError, setPlanError] = useState('')
   const [focusIntention, setFocusIntention] = useState('')
+  const [sessionMinutes, setSessionMinutes] = useState<number | null>(null)
+  const focusMinutes = sessionMinutes ?? state.settings.timerPreset?.focusMinutes ?? 25
   const [isGoalFormOpen, setIsGoalFormOpen] = useState(false)
   const [timerError, setTimerError] = useState('')
   const [focusCycleMessage, setFocusCycleMessage] = useState('')
+  const [discardedFocus, setDiscardedFocus] = useState<ActiveFocusSession | null>(null)
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isScoreDetailsOpen, setIsScoreDetailsOpen] = useState(false)
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
@@ -501,19 +504,14 @@ function App() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   const persistStatePayload = async (payload: string) => {
-    if (storageModeRef.current === 'indexeddb') {
-      try { await saveMainState(payload); void writeExternalBackup(payload).catch(() => undefined); return }
-      catch {
-        writeFallbackState(payload)
-        void writeExternalBackup(payload).catch(() => undefined)
-        storageModeRef.current = 'localstorage-fallback'
-        setStorageMode('localstorage-fallback')
-        setRecoveryNotice('IndexedDB bağlantısı kesildi; yeni kayıtlar geçici olarak tarayıcı depolamasında korunuyor.')
-        return
-      }
-    }
-    writeFallbackState(payload)
-    void writeExternalBackup(payload).catch(() => undefined)
+    // Every durable mutation must remain readable by the import/startup validator.
+    try { validateBackup(JSON.parse(payload)) }
+    catch (error) { throw new Error('Geçerli kayıt gerekli: ' + (error instanceof Error ? error.message : 'veri doğrulanamadı')) }
+    await saveMainState(payload)
+    void writeLocalServerBackup(payload).catch(() => setRecoveryNotice('Google Drive yedeği şu anda yazılamadı; ana kayıt bu cihazda korundu. Drive bağlantısı geldiğinde Ayarlar → Veri yönetimi bölümünden tekrar deneyebilirsin.'))
+    void writeExternalBackup(payload).then(result => {
+      if (result.configured && result.permission !== 'granted') setRecoveryNotice('Klasör yedeği güncellenemiyor: Ayarlar → Veri yönetimi bölümünden klasör iznini yenile. Ana kayıt bu cihazda korundu.')
+    }).catch(() => setRecoveryNotice('Klasör yedeği güncellenemedi. Ana kayıt bu cihazda korundu; Veri yönetiminden yedeği tekrar dene.'))
   }
 
   const actions = useSavedActions(() => stateRef.current, next => { stateRef.current = next; setAppState(next) }, persistStatePayload)
@@ -530,7 +528,7 @@ function App() {
     }
   }
   const [focusViewOpen, setFocusViewOpen] = useState(false)
-  const [safeMode, setSafeMode] = useState(() => localStorage.getItem(safeModeStorageKey) === '1')
+  const [safeMode, setSafeMode] = useState(() => readLocalPreference(safeModeStorageKey) === '1')
   const closeFocusView = () => { setFocusViewOpen(false); if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined) }
   const openFocusView = () => { setFocusViewOpen(true); if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.().catch(() => undefined) }
   useEffect(() => {
@@ -545,6 +543,7 @@ function App() {
   }, [state.settings.theme])
   const navigateTab = (tab: AppTab) => {
     setActiveTab(tab)
+    window.scrollTo({ top: 0, behavior: 'instant' })
     const url = new URL(window.location.href)
     if (tab === 'today') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab)
     window.history.pushState({ tab }, '', url)
@@ -554,6 +553,29 @@ function App() {
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
+  useEffect(() => {
+    if (!storageReady) return
+    let disposed = false
+    let running = false
+    const retry = () => {
+      if (running) return
+      running = true
+      const payload = JSON.stringify(stateRef.current)
+      void Promise.allSettled([retryPendingExternalBackup(payload), writeLocalServerBackup(payload)]).then(([externalResult, driveResult]) => {
+        if (disposed) return
+        if (externalResult.status === 'fulfilled' && externalResult.value.configured && externalResult.value.pendingSince && externalResult.value.permission !== 'granted') {
+          setRecoveryNotice('Bekleyen Google Drive klasör yedeği için Ayarlar → Veri yönetimi bölümünden klasör iznini yenile.')
+        }
+        if (externalResult.status === 'rejected' || driveResult.status === 'rejected') {
+          setRecoveryNotice('Bekleyen Google Drive klasör yedeği henüz yazılamadı; uygulama bağlantı geri geldiğinde tekrar deneyecek.')
+        }
+      }).finally(() => { running = false })
+    }
+    retry()
+    window.addEventListener('online', retry)
+    window.addEventListener('focus', retry)
+    return () => { disposed = true; window.removeEventListener('online', retry); window.removeEventListener('focus', retry) }
+  }, [storageReady])
   useEffect(() => {
     const openCapture = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase('tr-TR') === 'k') { event.preventDefault(); setQuickCaptureOpen(true) }
@@ -605,85 +627,74 @@ function App() {
       startupRecoveryNeeded = false
     }
     const archiveLegacy = () => {
-      const legacyRaw = localStorage.getItem(storageKey)
-      if (!legacyRaw) return
       try {
+        const legacyRaw = localStorage.getItem(storageKey)
+        if (!legacyRaw) return
         if (!localStorage.getItem(legacyMigrationBackupKey)) localStorage.setItem(legacyMigrationBackupKey, legacyRaw)
         localStorage.removeItem(storageKey)
         localStorage.removeItem(fallbackUpdatedAtKey)
       } catch { /* IndexedDB ana kayıt olarak çalışır; eski kayıt yerinde kalabilir. */ }
     }
     const recoveryCandidate = async () => {
-      for (const raw of [localStorage.getItem(storageKey), localStorage.getItem(legacyMigrationBackupKey)]) {
-        if (!raw) continue
-        try { return { state: validateBackup(JSON.parse(raw)).state, label: 'eski tarayıcı kaydı' } }
-        catch { try { localStorage.setItem(corruptStateStorageKey, raw) } catch { /* Ham kayıt sığmıyorsa mevcut yedekler denenir. */ } }
+      const candidates: { payload: string; time: number; label: string }[] = []
+      for (const key of [storageKey, legacyMigrationBackupKey]) {
+        try {
+          const raw = localStorage.getItem(key)
+          if (!raw) continue
+          const parsed = JSON.parse(raw)
+          candidates.push({ payload: raw, time: key === legacyMigrationBackupKey ? 0 : Date.parse(parsed.exportedAt ?? localStorage.getItem(fallbackUpdatedAtKey) ?? '') || 0, label: 'tarayıcı kurtarma kaydı' })
+        } catch { /* Other validated recovery versions remain available. */ }
       }
-      try {
-        for (const snapshot of await listAutomaticBackups()) {
-          try { return { state: validateBackup(JSON.parse(snapshot.payload)).state, label: `${new Date(snapshot.createdAt).toLocaleString('tr-TR')} tarihli otomatik yedek` } }
-          catch { /* Bir sonraki doğrulanabilir sürümü dene. */ }
-        }
-      } catch { /* IndexedDB tamamen kullanılamıyorsa yerel adaylarla devam edilir. */ }
+      for (const snapshot of await listAutomaticBackups().catch(() => [])) candidates.push({ payload: snapshot.payload, time: Date.parse(snapshot.createdAt), label: new Date(snapshot.createdAt).toLocaleString('tr-TR') + ' tarihli otomatik yedek' })
+      for (const candidate of candidates.sort((a, b) => b.time - a.time)) {
+        try { return { ...candidate, state: validateBackup(JSON.parse(candidate.payload)).state } }
+        catch { /* Try the next valid version. */ }
+      }
       return null
     }
     const initializeStorage = async () => {
       try {
+        // A read failure is not an empty database. Never replace unreadable data.
         const stored = await loadMainState()
+        if (!active) return
+        let loaded: AppState | null = null
         if (stored) {
-          try {
-            const fallbackRaw = localStorage.getItem(storageKey)
-            const storedUpdatedAt = Date.parse(stored.updatedAt)
-            let loaded = validateBackup(JSON.parse(stored.payload)).state
-            let useFallback = false
-            if (fallbackRaw) {
-              try {
-                const candidate = JSON.parse(fallbackRaw)
-                const fallbackUpdatedAt = Date.parse(candidate.exportedAt ?? localStorage.getItem(fallbackUpdatedAtKey) ?? '')
-                if (Number.isFinite(fallbackUpdatedAt) && (!Number.isFinite(storedUpdatedAt) || fallbackUpdatedAt > storedUpdatedAt)) {
-                  loaded = validateBackup(candidate).state
-                  useFallback = true
-                }
-              } catch { /* Geçersiz geçici kayıt, doğrulanmış ana kaydın yerini alamaz. */ }
-            }
-            if (useFallback) await saveMainState(JSON.stringify(loaded))
-            archiveLegacy()
-            activate(loaded, 'indexeddb', useFallback ? 'Geçici depoda bulunan daha yeni kayıt kurtarıldı ve IndexedDB ile birleştirildi.' : '')
-            return
-          } catch {
-            try { localStorage.setItem(corruptStateStorageKey, stored.payload) } catch { /* Bozuk ham veri çok büyükse otomatik yedekler yine denenir. */ }
-            throw new Error('IndexedDB ana kaydı doğrulanamadı.')
+          try { loaded = validateBackup(JSON.parse(stored.payload)).state }
+          catch {
+            // Preserve the exact broken record before attempting recovery.
+            localStorage.setItem(corruptStateStorageKey, stored.payload)
           }
         }
-        const legacyRaw = localStorage.getItem(storageKey) ?? localStorage.getItem(legacyMigrationBackupKey)
-        const initial = legacyRaw ? validateBackup(JSON.parse(legacyRaw)).state : stateRef.current
-        await saveMainState(JSON.stringify(initial))
-        archiveLegacy()
-        activate(initial, 'indexeddb', legacyRaw ? 'Mevcut verilerin doğrulandı ve IndexedDB ana veri deposuna güvenle taşındı.' : '')
-      } catch {
-        const recovered = await recoveryCandidate()
-        const next = recovered?.state ?? emptyState()
-        try {
-          await saveMainState(JSON.stringify(next))
-          archiveLegacy()
-          activate(next, 'indexeddb', recovered ? `${recovered.label} kurtarıldı ve IndexedDB’ye yazıldı.` : 'Geçerli eski kayıt bulunamadı; yeni ve doğrulanmış IndexedDB deposu oluşturuldu.')
-        } catch {
+        if (loaded && stored) {
+          let fallback: AppState | null = null
           try {
-            writeFallbackState(JSON.stringify(next))
-            activate(next, 'localstorage-fallback', recovered ? `${recovered.label} kurtarıldı. IndexedDB kullanılamadığı için geçici tarayıcı deposu kullanılıyor.` : 'IndexedDB kullanılamıyor; uygulama geçici tarayıcı deposuyla açıldı.')
-          } catch { if (active) setTimerError('Ana veri deposu açılamadı ve güvenli geri dönüş kaydı oluşturulamadı.') }
+            const raw = localStorage.getItem(storageKey)
+            if (raw) {
+              const candidate = JSON.parse(raw)
+              const time = Date.parse(candidate.exportedAt ?? localStorage.getItem(fallbackUpdatedAtKey) ?? '')
+              if (time > Date.parse(stored.updatedAt)) fallback = validateBackup(candidate).state
+            }
+          } catch { /* Keep the validated main record. */ }
+          if (!active) return
+          if (fallback) await saveMainState(JSON.stringify(fallback))
+          archiveLegacy()
+          activate(fallback ?? loaded, 'indexeddb', fallback ? 'Daha yeni geçici kayıt doğrulandı ve ana depoya taşındı.' : '')
+          return
         }
+        const recovered = await recoveryCandidate()
+        if (!active) return
+        if (!recovered && (stored || startupRecoveryNeeded)) throw new Error('Ana kayıt doğrulanamadı ve geçerli kurtarma yedeği bulunamadı. Mevcut veriler korunuyor; boş veriyle değiştirilmedi.')
+        const next = recovered?.state ?? stateRef.current
+        await saveMainState(JSON.stringify(next))
+        archiveLegacy()
+        activate(next, 'indexeddb', recovered ? recovered.label + ' kurtarıldı. Son kayıtlarını kontrol et.' : '')
+      } catch (error) {
+        if (active) setTimerError(error instanceof Error ? error.message : 'Veri deposu açılamadı. Mevcut kayıtların üzerine yazılmadı.')
       }
     }
     void initializeStorage()
     return () => { active = false }
   }, [])
-  useEffect(() => {
-    try {
-      if (activeFocus) localStorage.setItem(activeFocusStorageKey, JSON.stringify(activeFocus))
-      else localStorage.removeItem(activeFocusStorageKey)
-    } catch { setTimerError('Zamanlayıcı tarayıcıya kaydedilemedi. Depolama alanını kontrol et.') }
-  }, [activeFocus])
   useEffect(() => {
     if (!activeFocus) return
     const refresh = () => setNowMs(Date.now())
@@ -696,7 +707,7 @@ function App() {
       document.removeEventListener('visibilitychange', refresh)
       window.removeEventListener('focus', refresh)
     }
-  }, [activeFocus?.status, activeFocus?.id])
+  }, [activeFocus?.status, activeFocus?.id, activeFocus?.breakEndsAt])
   useEffect(() => {
     const reminders = state.settings.reminders
     if (safeMode || !reminders.enabled || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
@@ -707,7 +718,7 @@ function App() {
       let sent: Record<string, boolean> = {}
       try { sent = JSON.parse(localStorage.getItem(sentKey) ?? '{}') as Record<string, boolean> } catch { sent = {} }
       const candidates = [
-        { id: 'plan', time: reminders.planTime, due: (state.dailyPlans[day] ?? []).length === 0, title: 'Bugünün yönünü belirle', body: 'Bugünün en önemli 3 işinden ilkini seç.' },
+        { id: 'plan', time: reminders.planTime, due: (state.dailyPlans[day] ?? []).length === 0, title: 'Bugünün yönünü belirle', body: 'Yapılacaklar listenden bir iş seç.' },
         { id: 'habits', time: reminders.habitsTime, due: state.habits.some((habit) => habitIsDue(habit, day) && (!state.habitLog[day]?.[habit.id] || state.habitLog[day][habit.id].status === 'partial')), title: 'Minimum hedef yeterli', body: 'Bugünün alışkanlıklarından en az birini minimum seviyede tamamla.' },
         { id: 'reflection', time: reminders.reflectionTime, due: !state.reflections[day] || !Object.values(state.reflections[day]).some((value) => value.trim()), title: 'Günü 30 saniyede kapat', body: 'Bugünü değerlendir ve yarının en önemli işini yaz.' },
         { id: 'weekly', time: reminders.weeklyTime, due: reminders.weeklyEnabled && now.getDay() === 0, title: 'Haftalık Momentum özeti', body: 'Geçen haftayı incele ve yeni haftanın odağını belirle.' },
@@ -715,7 +726,7 @@ function App() {
       const due = candidates.find((candidate) => candidate.due && currentMinutes >= timeToMinutes(candidate.time) && !sent[`${day}-${candidate.id}`])
       if (!due || disposed) return
       try {
-        const registration = await navigator.serviceWorker?.ready
+        const registration = await navigator.serviceWorker?.getRegistration()
         if (registration) await registration.showNotification(due.title, { body: due.body, icon: '/icon.svg', badge: '/icon.svg', tag: `momentum-${due.id}` })
         else new Notification(due.title, { body: due.body, icon: '/icon.svg', tag: `momentum-${due.id}` })
         sent[`${day}-${due.id}`] = true
@@ -732,6 +743,7 @@ function App() {
     const syncActiveFocus = (event: StorageEvent) => {
       if (event.key !== activeFocusStorageKey) return
       const synced = readActiveFocus()
+      activeFocusRawRef.current = localStorage.getItem(activeFocusStorageKey)
       setActiveFocus(synced)
       if (synced) setSelected({ title: synced.title, area: synced.area, icon: stateRef.current.focusCategories.find((option) => option.title === synced.title)?.icon ?? '⏱️' })
       setNowMs(Date.now())
@@ -743,10 +755,9 @@ function App() {
   const isRunning = activeFocus?.status === 'running'
   const timerSeconds = focusSeconds(activeFocus, nowMs)
   const breakSeconds = activeFocus?.breakEndsAt ? Math.max(0, Math.ceil((Date.parse(activeFocus.breakEndsAt) - nowMs) / 1000)) : 0
-  const canStartBreak = Boolean(activeFocus && !activeFocus.breakEndsAt && activeFocus.targetSeconds && (activeFocus.currentRound ?? 1) < (activeFocus.rounds ?? 1) && timerSeconds >= activeFocus.targetSeconds * (activeFocus.currentRound ?? 1))
+  const canStartBreak = Boolean(activeFocus && !activeFocus.breakEndsAt && activeFocus.targetSeconds && (activeFocus.currentRound ?? 1) < (activeFocus.rounds ?? 1) && timerSeconds >= (activeFocus.roundStartSeconds ?? activeFocus.targetSeconds * ((activeFocus.currentRound ?? 1) - 1)) + activeFocus.targetSeconds)
   const liveFocusSessions = activeFocus ? focusSessionsFromActive(activeFocus, nowMs) : []
   const effectiveSessions = upsertFocusSessions(state.sessions, liveFocusSessions)
-  const reportingState = liveFocusSessions.length ? { ...state, sessions: effectiveSessions } : state
   const activeHabits = state.habits.filter((habit) => !habit.archived)
   const todayHabits = activeHabits.filter((habit) => habitIsDue(habit, today))
   const activeFocusCategories = state.focusCategories.filter((category) => !category.archived)
@@ -756,14 +767,16 @@ function App() {
   const totalSeconds = todaySessions.reduce((sum, session) => sum + session.seconds, 0)
   const todayLog = state.habitLog[today] ?? {}
   const todayPlan = state.dailyPlans[today] ?? []
-  const carryCandidates = (state.dailyPlans[previousDate(today)] ?? []).filter((item) => !item.completed && !todayPlan.some((todayItem) => todayItem.text.toLocaleLowerCase('tr-TR') === item.text.toLocaleLowerCase('tr-TR'))).slice(0, Math.max(0, 3 - todayPlan.length))
+  const carryCandidates = carryableTasks(state.dailyPlans[previousDate(today)] ?? [], todayPlan)
   const todayScreenTimeEntries = state.screenTimeEntries.filter((entry) => entry.date === today)
   const completedHabits = todayHabits.filter((habit) => todayLog[habit.id] && todayLog[habit.id].status !== 'partial').length
   const idealHabits = todayHabits.filter((habit) => todayLog[habit.id]?.status === 'ideal').length
   const dailyFocusSeconds = state.settings.dailyFocusMinutes * 60
   const scoreBreakdown = calculateDailyScore({ focusSeconds: totalSeconds, focusTargetMinutes: state.settings.dailyFocusMinutes, idealHabits, minimumHabits: completedHabits - idealHabits, habitCount: todayHabits.length })
   const dailyScore = scoreBreakdown.total
-  const activeDates = useMemo(() => activityDates(reportingState), [state, activeFocus?.id, activeFocus?.status, timerSeconds])
+  const workStreak = productivityStreak(workTargetDates(state.sessions, state.settings.dailyFocusMinutes), today)
+  const savedTodaySessions = state.sessions.filter(session => session.date === today)
+  const savedTodaySeconds = savedTodaySessions.reduce((sum, session) => sum + session.seconds, 0)
   useEffect(() => {
     if (!storageReady) return
     if (!selectionRestored.current && !activeFocus) {
@@ -777,8 +790,15 @@ function App() {
   }, [state.focusCategories, activeFocus?.id, selected.title, storageReady])
   const commitActiveFocus = (next: ActiveFocusSession | null) => {
     try {
+      if (localStorage.getItem(activeFocusStorageKey) !== activeFocusRawRef.current) {
+        activeFocusRawRef.current = localStorage.getItem(activeFocusStorageKey)
+        setActiveFocus(readActiveFocus())
+        setTimerError('Sayaç başka bir sekmede değişti. Güncel oturum yüklendi; işlemini tekrar dene.')
+        return false
+      }
       if (next) localStorage.setItem(activeFocusStorageKey, JSON.stringify(next))
       else localStorage.removeItem(activeFocusStorageKey)
+      activeFocusRawRef.current = next ? JSON.stringify(next) : null
       setActiveFocus(next)
       return true
     } catch {
@@ -793,11 +813,16 @@ function App() {
     else currentLog[id] = entry
     return { ...current, habitLog: { ...current.habitLog, [today]: currentLog } }
   })
-  const startTimer = () => {
+  const startTimer = (task?: DailyPlanItem) => {
+    if (activeFocus || readActiveFocus()) return
+    const category = activeFocusCategories.find(item => item.id === task?.categoryId) ?? selected
     const startedAt = new Date().toISOString()
     const preset = state.settings.timerPreset ?? defaultSettings.timerPreset!
-    if (!commitActiveFocus({ version: 1, id: crypto.randomUUID(), title: selected.title, area: selected.area, startedAt, status: 'running', segments: [{ startedAt }], intention: focusIntention.trim(), targetSeconds: preset.focusMinutes * 60, breakMinutes: preset.breakMinutes, rounds: preset.rounds, currentRound: 1 })) return
+    if (!commitActiveFocus({ version: 1, id: crypto.randomUUID(), title: category.title, area: category.area, ...(task ? { taskId: task.id } : {}), startedAt, status: 'running', segments: [{ startedAt }], intention: task?.text ?? focusIntention.trim(), targetSeconds: focusMinutes * 60, breakMinutes: preset.breakMinutes, rounds: preset.rounds, currentRound: 1 })) return
+    setSelected(category)
+    if (task) { document.getElementById('focus-panel')?.scrollIntoView({ block: 'center', behavior: 'auto' }); window.requestAnimationFrame(() => document.getElementById('focus-primary-action')?.focus({ preventScroll: true })) }
     setFocusIntention('')
+    setDiscardedFocus(null)
     actions.dismiss(); actions.dismissCelebration()
     setTimerError('')
     setFocusCycleMessage('')
@@ -812,7 +837,7 @@ function App() {
   const resumeTimer = () => {
     if (!activeFocus) return
     const startedAt = new Date().toISOString()
-    if (!commitActiveFocus({ ...activeFocus, status: 'running', breakEndsAt: undefined, currentRound: activeFocus.breakEndsAt ? Math.min(activeFocus.rounds ?? 1, (activeFocus.currentRound ?? 1) + 1) : activeFocus.currentRound, segments: [...activeFocus.segments, { startedAt }] })) return
+    if (!commitActiveFocus({ ...activeFocus, status: 'running', breakEndsAt: undefined, roundStartSeconds: activeFocus.breakEndsAt ? focusSeconds(activeFocus, Date.now()) : activeFocus.roundStartSeconds, currentRound: activeFocus.breakEndsAt ? Math.min(activeFocus.rounds ?? 1, (activeFocus.currentRound ?? 1) + 1) : activeFocus.currentRound, segments: [...activeFocus.segments, { startedAt }] })) return
     setFocusCycleMessage('')
     setNowMs(Date.now())
   }
@@ -821,25 +846,46 @@ function App() {
     const endedAt = new Date().toISOString()
     const breakMinutes = activeFocus.breakMinutes ?? 5
     if (!commitActiveFocus({ ...activeFocus, status: 'paused', breakEndsAt: new Date(Date.now() + breakMinutes * 60_000).toISOString(), segments: activeFocus.segments.map((segment, index) => index === activeFocus.segments.length - 1 && !segment.endedAt ? { ...segment, endedAt } : segment) })) return
-    setFocusCycleMessage(`${breakMinutes} dakikalık mola başladı. Süre dolunca sıradaki tur otomatik başlayacak.`)
+    setFocusCycleMessage(`${breakMinutes} dakikalık mola başladı. Süre dolunca hazır olduğunda sıradaki turu başlatabilirsin.`)
     setNowMs(Date.now())
   }
   const cycleNotified = useRef('')
   useEffect(() => {
-    if (!activeFocus) return
-    if (activeFocus.breakEndsAt && activeFocus.status === 'paused' && breakSeconds <= 0) { resumeTimer(); return }
+    if (!storageReady || !activeFocus) return
+    if (activeFocus.breakEndsAt && activeFocus.status === 'paused' && breakSeconds <= 0) { setFocusCycleMessage('Mola bitti. Hazır olduğunda sıradaki turu başlat; beklerken çalışma süresi eklenmez.'); return }
     const round = activeFocus.currentRound ?? 1
     const key = `${activeFocus.id}-${round}`
-    if (activeFocus.status !== 'running' || !activeFocus.targetSeconds || timerSeconds < activeFocus.targetSeconds * round || cycleNotified.current === key) return
+    if (activeFocus.status !== 'running' || !activeFocus.targetSeconds || timerSeconds < (activeFocus.roundStartSeconds ?? activeFocus.targetSeconds * (round - 1)) + activeFocus.targetSeconds || cycleNotified.current === key) return
     cycleNotified.current = key
     const finalRound = round >= (activeFocus.rounds ?? 1)
     setFocusCycleMessage(finalRound ? 'Odak döngüsü tamamlandı. Oturumu kaydedebilir veya çalışmaya devam edebilirsin.' : `${round}. tur tamamlandı. ${(activeFocus.breakMinutes ?? 5)} dakikalık mola zamanı.`)
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(finalRound ? 'Odak döngüsü tamamlandı' : 'Mola zamanı', { body: activeFocus.intention || activeFocus.title, icon: '/icon-192.png' })
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      const title = finalRound ? 'Odak döngüsü tamamlandı' : 'Mola zamanı'
+      const options = { body: activeFocus.intention || activeFocus.title, icon: '/icon-192.png' }
+      void (async () => {
+        try {
+          const registration = await navigator.serviceWorker?.getRegistration()
+          if (registration) await registration.showNotification(title, options)
+          else new Notification(title, options)
+        } catch { /* Bildirim desteği zamanlayıcıyı veya otomatik molayı durdurmamalı. */ }
+      })()
+    }
     if (!finalRound && state.settings.timerPreset?.autoStartBreaks) {
       const endedAt = new Date().toISOString()
       commitActiveFocus({ ...activeFocus, status: 'paused', breakEndsAt: new Date(Date.now() + (activeFocus.breakMinutes ?? 5) * 60_000).toISOString(), segments: activeFocus.segments.map((segment, index) => index === activeFocus.segments.length - 1 && !segment.endedAt ? { ...segment, endedAt } : segment) })
     }
-  }, [activeFocus?.id, activeFocus?.status, activeFocus?.currentRound, activeFocus?.breakEndsAt, timerSeconds, breakSeconds])
+  }, [storageReady, activeFocus?.id, activeFocus?.status, activeFocus?.currentRound, activeFocus?.breakEndsAt, timerSeconds, breakSeconds])
+  const discardTimer = () => {
+    if (!activeFocus || actions.pending) return
+    const endedAt = new Date().toISOString()
+    const discarded: ActiveFocusSession = { ...activeFocus, status: 'paused', segments: activeFocus.segments.map(segment => segment.endedAt ? segment : { ...segment, endedAt }) }
+    if (!commitActiveFocus(null)) return
+    setDiscardedFocus(discarded)
+    setTimerError('')
+    setFocusCycleMessage('Oturum kaydedilmeden sıfırlandı.')
+    setNowMs(Date.now())
+    closeFocusView()
+  }
   const stopTimer = async () => {
     if (!activeFocus || actions.pending) return
     const stoppedAt = Date.now()
@@ -848,7 +894,7 @@ function App() {
       : activeFocus
     const sessions = focusSessionsFromActive(finished, stoppedAt)
     try {
-      localStorage.setItem(activeFocusStorageKey, JSON.stringify(finished))
+      if (!commitActiveFocus(finished)) return
       const current = stateRef.current
       const mergedSessions = upsertFocusSessions(current.sessions, sessions)
       const secondsByDate = new Map<string, number>()
@@ -858,7 +904,7 @@ function App() {
         setTimerError('Bu oturum bir günün toplam odak süresini 24 saatin üzerine çıkarıyor. İlgili gündeki hatalı manuel kaydı silip tekrar dene; oturumun korunuyor.')
         return
       }
-      const saved = await setState(latest => sessions.length ? { ...latest, sessions: upsertFocusSessions(latest.sessions, sessions), experience: rememberEntry(latest, { title: finished.title, area: finished.area, minutes: Math.max(1, Math.round(focusSeconds(finished, stoppedAt) / 60)) }) } : latest)
+      const saved = await setState(latest => sessions.length ? { ...latest, sessions: upsertFocusSessions(latest.sessions, sessions), experience: rememberEntry(latest, { title: finished.title, area: finished.area, minutes: Math.min(1440, Math.max(1, Math.round(focusSeconds(finished, stoppedAt) / 60))) }) } : latest)
       if (!saved) { setActiveFocus(finished); setTimerError(saveFailure); return }
     } catch {
       setActiveFocus(finished)
@@ -880,7 +926,7 @@ function App() {
     if (!saved) return
     setHabitDraft({ name: '', icon: '✨', area: defaultAreas[3], minimum: '', ideal: '' }); setIsHabitFormOpen(false)
   }
-  const saveHabit = (habit: Habit) => setState((current) => ({ ...current, habits: current.habits.map((item) => item.id === habit.id ? { ...habit, area: normalizeArea(habit.area), name: habit.name.trim(), icon: habit.icon.trim() || '✨', minimum: habit.minimum.trim(), ideal: habit.ideal.trim() } : item) }))
+  const saveHabit = (habit: Habit) => setState((current) => ({ ...current, habits: current.habits.map((item) => item.id === habit.id ? { ...updateHabitPause(item, habit, today), area: normalizeArea(habit.area), name: habit.name.trim(), icon: habit.icon.trim() || '✨', minimum: habit.minimum.trim(), ideal: habit.ideal.trim() } : item) }))
   const archiveHabit = (id: string, archived: boolean) => setState((current) => ({ ...current, habits: current.habits.map((habit) => habit.id === id ? { ...habit, archived } : habit) }))
   const deleteHabit = async (id: string) => {
     const currentState = stateRef.current
@@ -922,8 +968,7 @@ function App() {
     event.preventDefault()
     const text = planDraft.trim()
     if (!text) { setPlanError('Öncelik boş bırakılamaz.'); return }
-    if (todayPlan.length >= 3) { setPlanError('Bugün en fazla 3 önemli iş seçebilirsin.'); return }
-    const saved = await setState((current) => ({ ...current, dailyPlans: { ...current.dailyPlans, [today]: [...(current.dailyPlans[today] ?? []), { id: crypto.randomUUID(), text, completed: false }] } }))
+    const saved = await setState((current) => ({ ...current, dailyPlans: { ...current.dailyPlans, [today]: [...(current.dailyPlans[today] ?? []), { id: crypto.randomUUID(), text, completed: false, categoryId: activeFocusCategories.find(category => category.title === selected.title)?.id }] } }))
     if (!saved) { setPlanError(saveFailure); return }
     setPlanDraft(''); setPlanError('')
   }
@@ -934,9 +979,8 @@ function App() {
     return moveToTrash('plan-item', item.text, { date: today, item }, current => ({ ...current, dailyPlans: { ...current.dailyPlans, [today]: (current.dailyPlans[today] ?? []).filter(plan => plan.id !== id) } }))
   }
   const carryYesterdayPlans = async () => {
-    const candidates = (state.dailyPlans[previousDate(today)] ?? []).filter((item) => !item.completed && !todayPlan.some((todayItem) => todayItem.text.toLocaleLowerCase('tr-TR') === item.text.toLocaleLowerCase('tr-TR'))).slice(0, Math.max(0, 3 - todayPlan.length))
-    if (!candidates.length) return
-    await setState((current) => ({ ...current, dailyPlans: { ...current.dailyPlans, [today]: [...(current.dailyPlans[today] ?? []), ...candidates.map((item) => ({ id: crypto.randomUUID(), text: item.text, completed: false, carriedFrom: previousDate(today) }))] } }))
+    const saved = await setState((current) => ({ ...current, dailyPlans: { ...current.dailyPlans, [today]: [...(current.dailyPlans[today] ?? []), ...carryableTasks(current.dailyPlans[previousDate(today)] ?? [], current.dailyPlans[today] ?? []).map(item => ({ ...item, carriedFrom: previousDate(today) }))] } }))
+    setPlanError(saved ? '' : saveFailure)
   }
   const saveReflection = (reflection: DailyReflection) => setState((current) => ({ ...current, reflections: { ...current.reflections, [today]: reflection } }))
   const saveGoal = (goal: Goal) => setState((current) => ({ ...current, goals: current.goals.some((item) => item.id === goal.id) ? current.goals.map((item) => item.id === goal.id ? goal : item) : [...current.goals, goal] }))
@@ -1064,42 +1108,44 @@ function App() {
   }
   const openDayDetail = (date: string) => { if (date <= today) setSelectedDate(date) }
 
-  if (!storageReady) return <main className="database-loading" aria-busy="true"><div className="brand-mark">M</div><div><p className="eyebrow">MOMENTUM VERİ DEPOSU</p><h1>Verilerin güvenle hazırlanıyor.</h1><p>Mevcut kayıtlar doğrulanıyor ve ana veri deposu açılıyor…</p>{timerError && <p className="form-error" role="alert">{timerError} Sayfayı yenileyerek tekrar deneyebilirsin.</p>}</div><span className="database-loading-bar" /></main>
+  if (!storageReady) return <main className="database-loading" aria-busy="true"><div className="brand-mark">M</div><div><p className="eyebrow">MOMENTUM VERİ DEPOSU</p><h1>Verilerin güvenle hazırlanıyor.</h1><p>Mevcut kayıtlar doğrulanıyor ve ana veri deposu açılıyor…</p>{timerError && <p className="form-error" role="alert">{timerError} Mevcut kayıtların korunuyor.</p>}{timerError && <button className="timer-button" onClick={() => window.location.reload()}>Tekrar dene</button>}{timerError && <p>Tarayıcı verilerini temizleme; varsa indirdiğin yedeği sakla.</p>}</div><span className="database-loading-bar" /></main>
 
   return <><PwaStatus /><fieldset className="app-interactions" disabled={actions.pending}><a className="skip-link" href="#main-content">Ana içeriğe geç</a><main id="main-content" className={`app-shell ${state.settings.compactToday ? 'compact-today' : ''} ${activeFocus ? 'focus-engaged' : ''}`}>
-    <header className="topbar"><a className="brand" href="#top" aria-label="Momentum ana sayfa" onClick={() => navigateTab('today')}><span className="brand-mark">M</span> momentum</a><nav className="main-nav" aria-label="Ana bölümler"><button aria-current={activeTab === 'today' ? 'page' : undefined} className={activeTab === 'today' ? 'nav-active' : ''} onClick={() => navigateTab('today')}><Icon name="spark" /><span>Bugün</span></button><button aria-current={activeTab === 'habits' ? 'page' : undefined} className={activeTab === 'habits' ? 'nav-active' : ''} onClick={() => navigateTab('habits')}><Icon name="check" /><span>Alışkanlıklar</span></button><button aria-current={activeTab === 'journal' ? 'page' : undefined} className={activeTab === 'journal' ? 'nav-active' : ''} onClick={() => navigateTab('journal')}><Icon name="book" /><span>Günlük</span></button><button aria-current={activeTab === 'progress' ? 'page' : undefined} className={activeTab === 'progress' ? 'nav-active' : ''} onClick={() => navigateTab('progress')}><Icon name="flame" /><span>İlerleme</span></button><button aria-current={activeTab === 'calendar' ? 'page' : undefined} className={activeTab === 'calendar' ? 'nav-active' : ''} onClick={() => navigateTab('calendar')}><Icon name="calendar" /><span>Takvim</span></button></nav><button className={`sync-indicator sync-${cloud.phase}`} title={cloud.message} aria-label={`Senkronizasyon: ${cloud.message}`} onClick={() => setIsSettingsOpen(true)}><span aria-hidden="true" />{cloud.phase === 'synced' ? 'Senkron' : cloud.phase === 'syncing' ? 'Kaydediliyor' : cloud.phase === 'error' || cloud.phase === 'choice' ? 'Kontrol et' : 'Yerel'}</button><button className="undo-shortcut" onClick={actions.undo} disabled={!actions.canUndo} aria-label="Son değişikliği geri al"><Icon name="undo" /></button><button className="avatar" aria-label="Ayarlar" onClick={() => setIsCustomizeOpen(true)}><Icon name="settings" /></button></header>
+    <header className="topbar"><a className="brand" href="#top" aria-label="Momentum ana sayfa" onClick={() => navigateTab('today')}><span className="brand-mark"><Icon name="spark" /></span><span>momentum<small>KENDİNE YATIRIM YAP</small></span></a><div className="workspace-label">ÇALIŞMA ALANIN</div><nav className="main-nav" aria-label="Ana bölümler"><button aria-current={activeTab === 'today' ? 'page' : undefined} className={activeTab === 'today' ? 'nav-active' : ''} onClick={() => navigateTab('today')}><Icon name="spark" /><span>Bugün</span></button><button aria-current={activeTab === 'habits' ? 'page' : undefined} className={activeTab === 'habits' ? 'nav-active' : ''} onClick={() => navigateTab('habits')}><Icon name="check" /><span>Alışkanlıklar</span></button><button aria-current={activeTab === 'journal' ? 'page' : undefined} className={activeTab === 'journal' ? 'nav-active' : ''} onClick={() => navigateTab('journal')}><Icon name="book" /><span>Günlük</span></button><button aria-current={activeTab === 'progress' ? 'page' : undefined} className={activeTab === 'progress' ? 'nav-active' : ''} onClick={() => navigateTab('progress')}><Icon name="flame" /><span>İlerleme</span></button><button aria-current={activeTab === 'calendar' ? 'page' : undefined} className={activeTab === 'calendar' ? 'nav-active' : ''} onClick={() => navigateTab('calendar')}><Icon name="calendar" /><span>Takvim</span></button></nav><div className="sidebar-note"><Icon name="spark" /><strong>Küçük adımlar.<br />Kalıcı değişimler.</strong><p>Bugün kendin için bir şey yap.</p></div><div className="sidebar-tools"><button className={`sync-indicator sync-${cloud.phase}`} title={cloud.message} aria-label={`Senkronizasyon: ${cloud.message}`} onClick={() => setIsSettingsOpen(true)}><span aria-hidden="true" />{cloud.phase === 'synced' ? 'Senkron' : cloud.phase === 'syncing' ? 'Kaydediliyor' : cloud.phase === 'error' || cloud.phase === 'choice' ? 'Kontrol et' : 'Yerel'}</button><button className="undo-shortcut" onClick={actions.undo} disabled={!actions.canUndo} aria-label="Son değişikliği geri al"><Icon name="undo" /></button><button className="avatar" aria-label="Ayarlar" onClick={() => setIsCustomizeOpen(true)}><Icon name="settings" /></button></div></header>
     {recoveryNotice && <div className="recovery-banner" role="status"><Icon name="alert" /><p>{recoveryNotice}</p><button aria-label="Kurtarma bildirimini kapat" onClick={() => setRecoveryNotice('')}>×</button></div>}
     {safeMode && <div className="recovery-banner safe-mode-banner" role="status"><Icon name="alert" /><p>Güvenli mod açık: bulut yazımı ve bildirimler geçici olarak durduruldu.</p><button onClick={() => { localStorage.removeItem(safeModeStorageKey); setSafeMode(false) }}>Normal moda dön</button></div>}
+    <div className="workspace-topline"><span><i />Kişisel alanın / <strong>{{ today: 'Bugün', habits: 'Alışkanlıklar', journal: 'Günlük', progress: 'İlerleme', calendar: 'Takvim' }[activeTab]}</strong></span><button className="quick-capture-trigger" onClick={() => setQuickCaptureOpen(true)}><Icon name="clock" size={16} />Hızlı kayıt <kbd>Ctrl K</kbd></button></div>
     <div className="page-transition" key={activeTab}>
-    {activeTab === 'today' && <section className="hero" id="top"><div><p className="eyebrow">{weekdayAndDate(new Date(nowMs))}</p><h1>{greeting.message}{state.settings.name ? `, ${state.settings.name}` : ''}.</h1><p className="hero-copy">{greeting.copy}</p></div><ScoreRing score={dailyScore} /></section>}
+    {activeTab === 'today' && <section className="hero" id="top"><div><p className="eyebrow">{weekdayAndDate(new Date(nowMs))}</p><h1>{greeting.message}{state.settings.name ? `, ${state.settings.name}` : ''}.</h1><p className="hero-copy">{greeting.copy}</p></div><div className="hero-score work-streak-hero"><span className="work-streak-number"><Icon name="flame" /><strong>{workStreak.current}</strong><small>gün</small></span><div><strong>Çalışma hedefi zincirin</strong><span>{workStreak.activeToday ? 'Bugünün halkası tamamlandı.' : 'Bugünün hedefi için hâlâ zamanın var.'}</span><small>Günde {formatDuration(dailyFocusSeconds)} kayıtlı çalışma · en uzun {workStreak.best} gün</small><small>Seri mevcut hedefe göre hesaplanır.</small></div></div></section>}
     {activeTab === 'today' ? <>
+      <div className="daily-path" aria-label="Günün akışı"><button onClick={() => document.getElementById('daily-plan-input')?.focus()}><span className={todayPlan.length ? 'path-icon complete' : 'path-icon'}><Icon name={todayPlan.length ? 'check' : 'calendar'} /></span><span><strong>Gününü tasarla</strong><small>{todayPlan.length ? `${todayPlan.filter(item => item.completed).length}/${todayPlan.length} iş tamamlandı` : 'En önemli işine yer aç'}</small></span><span className="path-arrow">↗</span></button><button onClick={() => { document.getElementById('focus-panel')?.scrollIntoView({ block: 'center', behavior: 'auto' }); document.getElementById('focus-primary-action')?.focus({ preventScroll: true }) }}><span className="path-icon"><Icon name="clock" /></span><span><strong>Odağını bul</strong><small>{activeFocus ? 'Oturumuna geri dön' : `${focusMinutes} dakika sadece sen ve işin`}</small></span><span className="path-arrow">↗</span></button><button onClick={() => navigateTab('journal')}><span className={Object.values(state.reflections[today] ?? {}).some(value => value.trim()) ? 'path-icon complete' : 'path-icon'}><Icon name="book" /></span><span><strong>Gününü kapat</strong><small>{Object.values(state.reflections[today] ?? {}).some(value => value.trim()) ? 'Bugünün notu hazır' : 'Kendine bir not bırak'}</small></span><span className="path-arrow">↗</span></button></div>
       {missedYesterday.length > 0 && <section className="never-miss-banner">
         <div className="nmt-icon"><Icon name="alert" /></div>
         <div className="nmt-content">
-          <strong>Never Miss Twice</strong>
+          <strong>Bugün ritmine geri dön</strong>
           <p>Dün <strong>{missedYesterday.map(h => h.name).join(', ')}</strong> kaçtı; bugün minimum hedefi yaparak seriyi yeniden başlat.</p>
         </div>
       </section>}
-      <section className="grid primary-grid"><article className="card focus-card"><div className="card-heading"><div><p className="eyebrow">FOCUS</p><h2>Şu an neye yatırım yapıyorsun?</h2></div><span className={`live-dot ${activeFocus?.status === 'paused' ? 'paused' : ''}`}>{activeFocus?.breakEndsAt ? `Mola · ${activeFocus.currentRound ?? 1}/${activeFocus.rounds ?? 1}` : isRunning ? `Canlı · ${activeFocus?.currentRound ?? 1}/${activeFocus?.rounds ?? 1}` : activeFocus ? 'Duraklatıldı' : 'Hazır'}</span></div><div className="focus-choice-row">{activeFocusCategories.map((option) => <button key={option.id} disabled={Boolean(activeFocus)} onClick={() => setSelected(option)} className={`focus-choice ${selected.title === option.title ? 'selected' : ''}`}><AreaIcon area={option.area} />{option.title}</button>)}</div>{!activeFocus && <div className="focus-setup"><input className="focus-intention" value={focusIntention} maxLength={160} onChange={(event) => setFocusIntention(event.target.value)} placeholder="Bu oturumun net çıktısı ne? (isteğe bağlı)" aria-label="Odak niyeti" /><span>{state.settings.timerPreset?.focusMinutes ?? 25} dk odak · {state.settings.timerPreset?.breakMinutes ?? 5} dk mola · {state.settings.timerPreset?.rounds ?? 4} tur</span></div>}<div className={`timer ${isRunning ? 'timer-active' : ''} ${activeFocus?.status === 'paused' ? 'timer-paused' : ''}`}><span>{activeFocus?.breakEndsAt ? 'Mola — nefes al ve hareket et' : activeFocus ? activeFocus.intention || activeFocus.title : 'Bir odak seç ve başla'}</span><strong>{formatDuration(activeFocus?.breakEndsAt ? breakSeconds : timerSeconds)}</strong></div>{focusCycleMessage && <p className="focus-cycle-message" role="status">{focusCycleMessage}</p>}{!activeFocus ? <button className="timer-button" onClick={startTimer}><Icon name="play" />Odak başlat</button> : <div className="timer-actions">{canStartBreak && <button className="timer-button break" onClick={startBreak}><Icon name="pause" />Molayı başlat</button>}<button className="timer-button pause" onClick={isRunning ? pauseTimer : resumeTimer}><Icon name={isRunning ? "pause" : "play"} />{activeFocus.breakEndsAt ? 'Molayı atla' : isRunning ? 'Duraklat' : 'Devam et'}</button><button className="timer-button stop" onClick={stopTimer}><Icon name="stop" />Kaydet ve bitir</button></div>}
-      {activeFocus ? <><button className="focus-expand" onClick={openFocusView}><Icon name="expand" />Tam ekran odak</button><p className="subtle">{isRunning ? 'Şu an yalnızca bu çalışmaya yer aç.' : 'Mola süresi kaydına eklenmez.'}</p></> : <QuickCapture selected={selected} categories={state.focusCategories} recent={state.experience?.recentEntries ?? []} onSave={addManualSession} />}
-      {!activeFocus && state.sessions.filter(s => s.date === today).length > 0 && <div className="recent-log"><span className="eyebrow">BUGÜNKÜ SON KAYITLAR</span>{state.sessions.filter(s => s.date === today).slice(-3).reverse().map(session => <div key={session.id} data-record={session.id}><AreaIcon area={session.area} /><strong>{session.title}</strong><span>{session.seconds < 60 ? session.seconds + ' sn' : Math.round(session.seconds / 60) + ' dk'}</span><button className="delete-action" aria-label={session.title + ' kaydını sil'} onClick={() => deleteSession(session.id)}>Sil</button></div>)}</div>}
+      <section className="grid primary-grid"><article className="card focus-card" id="focus-panel"><div className="card-heading"><div><p className="eyebrow">ODAK ATÖLYESİ</p><h2>Bir şeye tüm dikkatini ver.</h2></div><span className={`live-dot ${activeFocus?.status === 'paused' ? 'paused' : ''}`}>{activeFocus?.breakEndsAt ? `Mola · ${activeFocus.currentRound ?? 1}/${activeFocus.rounds ?? 1}` : isRunning ? `Canlı · ${activeFocus?.currentRound ?? 1}/${activeFocus?.rounds ?? 1}` : activeFocus ? 'Duraklatıldı' : 'Hazır'}</span></div><div className="focus-choice-row">{activeFocusCategories.map((option) => <button key={option.id} disabled={Boolean(activeFocus)} onClick={() => setSelected(option)} aria-pressed={selected.title === option.title} className={`focus-choice ${selected.title === option.title ? 'selected' : ''}`}><AreaIcon area={option.area} />{option.title}</button>)}</div>{!activeFocus && <div className="focus-setup"><input className="focus-intention" value={focusIntention} maxLength={160} onChange={(event) => setFocusIntention(event.target.value)} placeholder="Bu oturumun net çıktısı ne? (isteğe bağlı)" aria-label="Odak niyeti" /><div className="focus-duration-options" role="group" aria-label="Oturum süresi">{[...new Set([15, 25, 50, focusMinutes])].sort((a, b) => a - b).map(minutes => <button key={minutes} aria-pressed={focusMinutes === minutes} onClick={() => setSessionMinutes(minutes)}>{minutes} dk</button>)}</div><span>{focusMinutes} dk odak · {state.settings.timerPreset?.breakMinutes ?? 5} dk mola · {state.settings.timerPreset?.rounds ?? 4} tur</span></div>}<FocusDial roundStartSeconds={activeFocus?.roundStartSeconds} round={activeFocus?.currentRound ?? 1} rounds={activeFocus?.rounds ?? state.settings.timerPreset?.rounds ?? 4} seconds={activeFocus?.breakEndsAt ? breakSeconds : timerSeconds} targetSeconds={activeFocus?.breakEndsAt ? (activeFocus.breakMinutes ?? 5) * 60 : activeFocus?.targetSeconds ?? focusMinutes * 60} active={Boolean(activeFocus)} running={isRunning} breakActive={Boolean(activeFocus?.breakEndsAt)} label={activeFocus?.breakEndsAt ? 'Mola — nefes al ve hareket et' : activeFocus ? activeFocus.intention || activeFocus.title : selected.title} />{focusCycleMessage && <p className="focus-cycle-message" role="status">{focusCycleMessage}</p>}{discardedFocus && !activeFocus && <button className="focus-discard" onClick={() => { if (commitActiveFocus(discardedFocus)) { setDiscardedFocus(null); setFocusCycleMessage('Oturum duraklatılmış olarak geri getirildi.'); setTimerError(''); setNowMs(Date.now()) } }}>Sıfırlanan oturumu geri getir</button>}{!activeFocus ? <button id="focus-primary-action" className="timer-button" onClick={() => startTimer()}><Icon name="play" />Odak başlat</button> : <div className="timer-actions">{canStartBreak && <button className="timer-button break" onClick={startBreak}><Icon name="pause" />Molayı başlat</button>}<button id="focus-primary-action" className="timer-button pause" onClick={isRunning ? pauseTimer : resumeTimer}><Icon name={isRunning ? "pause" : "play"} />{activeFocus.breakEndsAt ? breakSeconds > 0 ? 'Molayı atla' : 'Sıradaki tura başla' : isRunning ? 'Duraklat' : 'Devam et'}</button><button className="timer-button stop" onClick={stopTimer}><Icon name="stop" />Kaydet ve bitir</button></div>}
+      {activeFocus ? <><button type="button" className="focus-discard" onClick={discardTimer} title="Bu oturumun süresini kaydetmeden sayacı sıfırla"><Icon name="undo" size={16} />Kaydetmeden sıfırla</button><button className="focus-expand" onClick={openFocusView}><Icon name="expand" />Tam ekran odak</button><p className="subtle">{isRunning ? 'Sayaç, sekme kapalıyken de geçen süreyi sayar. Çalışmayı bıraktığında duraklat; dikkatini otomatik ölçmez.' : 'Duraklama ve mola süresi kaydına eklenmez.'}</p></> : null}
       {timerError && <p className="form-error" role="alert">{timerError}</p>}
       </article>
-        <div className="today-side-stack"><article className="card today-card"><div className="card-heading"><div><p className="eyebrow">BUGÜN</p><h2>İlerleme özeti</h2></div><span className="date-pill">{new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</span></div><div className="time-display"><strong>{formatDuration(totalSeconds)}</strong><span>kendine ayrılan odak süresi</span></div><div className="progress-track"><span style={{ width: `${Math.min(100, totalSeconds / dailyFocusSeconds * 100)}%` }} /></div><div className="progress-label"><span>Günlük hedef: {formatDuration(dailyFocusSeconds)}</span><strong>{formatDuration(Math.max(0, dailyFocusSeconds - totalSeconds))} kaldı</strong></div><div className="summary-stats"><div><strong>{completedHabits}/{todayHabits.length}</strong><span>alışkanlık</span></div><div><strong>{todaySessions.length}</strong><span>focus oturumu</span></div><div><strong>+{dailyScore}</strong><span>gün puanı</span></div></div><button className="score-help" aria-expanded={isScoreDetailsOpen} onClick={() => setIsScoreDetailsOpen((open) => !open)}>Skor nasıl hesaplanıyor? {isScoreDetailsOpen ? '↑' : '↓'}</button>{isScoreDetailsOpen && <div className="score-breakdown"><span><strong>{scoreBreakdown.focusPoints}/65</strong> focus hedefi</span><span><strong>{scoreBreakdown.habitPoints}/35</strong> alışkanlıklar</span><p>İdeal alışkanlık tam puan, minimum hedef %60 puan getirir. Focus bölümü günlük süre hedefine ulaştığında 65 puanda durur.</p></div>}</article><DailyPlan plan={todayPlan} carryCount={carryCandidates.length} draft={planDraft} error={planError} onCarry={carryYesterdayPlans} onDraftChange={(value) => { setPlanDraft(value); setPlanError('') }} onAdd={addPlanItem} onUpdate={updatePlan} onRemove={removePlan} /><TodayHabits habits={todayHabits} log={todayLog} onSetEntry={setHabitEntry} onOpenAll={() => navigateTab('habits')} /></div></section>
+        <div className="today-side-stack"><article className="card today-card"><div className="card-heading"><div><p className="eyebrow">BUGÜN</p><h2>İlerleme özeti</h2></div><span className="date-pill">{new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</span></div><div className="time-display"><strong>{formatDuration(savedTodaySeconds)}</strong><span>kaydedilmiş çalışma süresi</span>{activeFocus && <small className="live-time-note">+ {formatDuration(Math.max(0, totalSeconds - savedTodaySeconds))} devam eden oturumda · henüz kaydedilmedi</small>}</div><div className="progress-track"><span style={{ width: `${Math.min(100, savedTodaySeconds / dailyFocusSeconds * 100)}%` }} /></div><div className="progress-label"><span>Günlük hedef: {formatDuration(dailyFocusSeconds)}</span><strong>{formatDuration(Math.max(0, dailyFocusSeconds - savedTodaySeconds))} kaldı</strong></div><div className="summary-stats"><div><strong>{completedHabits}/{todayHabits.length}</strong><span>alışkanlık</span></div><div><strong>{new Set(savedTodaySessions.map(session => session.timerSessionId ?? session.id)).size}</strong><span>odak oturumu</span></div><div><strong>{todayPlan.filter(item => item.completed).length}/{todayPlan.length}</strong><span>tamamlanan iş</span></div></div><button className="score-help" aria-expanded={isScoreDetailsOpen} onClick={() => setIsScoreDetailsOpen((open) => !open)}>Gün puanı ve hesaplama {isScoreDetailsOpen ? '↑' : '↓'}</button>{isScoreDetailsOpen && <div className="score-breakdown"><strong>Gün puanı: {dailyScore}/100</strong><span><strong>{scoreBreakdown.focusPoints}/65</strong> focus hedefi</span><span><strong>{scoreBreakdown.habitPoints}/35</strong> alışkanlıklar</span><p>İdeal alışkanlık tam puan, minimum hedef %60 puan getirir. Odak bölümü günlük süre hedefine ulaştığında 65 puanda durur. Bu bir alışkanlık ve süre puanıdır; öğrenme kalitesini veya iş çıktısını ölçmez.</p></div>}</article><DailyPlan categories={activeFocusCategories} defaultCategoryId={activeFocusCategories.find(category => category.title === selected.title)?.id ?? activeFocusCategories[0]?.id ?? ''} sessions={state.sessions} activeTaskId={activeFocus?.taskId} hasActiveFocus={Boolean(activeFocus)} onStart={startTimer} plan={todayPlan} carryCount={carryCandidates.length} draft={planDraft} error={planError} onCarry={carryYesterdayPlans} onDraftChange={(value) => { setPlanDraft(value); setPlanError('') }} onAdd={addPlanItem} onUpdate={updatePlan} onRemove={removePlan} /><TodayHabits habits={todayHabits} log={todayLog} onSetEntry={setHabitEntry} onOpenAll={() => navigateTab('habits')} /></div></section>
+      <TodaySessions sessions={savedTodaySessions} categories={state.focusCategories} onUpdate={updateSession} onDelete={deleteSession} />
       <TodayInsights sessions={state.sessions} screenEntries={state.screenTimeEntries} today={today} onOpenReport={() => navigateTab('progress')} onOpenJournal={() => navigateTab('journal')} />
 
-    </> : activeTab === 'habits' ? <section className="tab-page"><section className="section-heading"><div><p className="eyebrow">GÜNLÜK RİTİM</p><h1>Alışkanlıkların</h1><p className="hero-copy">Miktar gir veya minimum/ideal durumunu tek dokunuşla kaydet.</p></div><button className="quiet-button" onClick={() => setIsHabitFormOpen(true)}>+ Yeni alışkanlık</button></section><section className="habit-grid">{activeHabits.map((habit) => <HabitCard key={habit.id} habit={habit} entry={todayLog[habit.id]} streak={getStreak(habit.id, state.habitLog, today)} onSetEntry={setHabitEntry} />)}{activeHabits.length === 0 && <article className="card empty-tab-state"><span>🌱</span><h2>Yeni bir ritim oluştur</h2><p>Her gün veya seçtiğin günlerde tekrarlanacak ilk alışkanlığını ekle.</p><button className="timer-button" onClick={() => setIsHabitFormOpen(true)}>Alışkanlık ekle</button></article>}</section></section> : activeTab === 'journal' ? <section className="tab-page"><section className="section-heading"><div><p className="eyebrow">GÜNÜ KAPAT</p><h1>Günlük ve ekran süresi</h1><p className="hero-copy">Bugünü değerlendir; telefon kullanımını görünür hale getir.</p></div></section><section className="grid journal-grid"><ReflectionCard date={today} initial={state.reflections[today]} onSave={saveReflection} /><article className="card screen-time-card"><div className="card-heading"><div><p className="eyebrow">EKRAN SÜRESİ</p><h2>Bugünün telefon kullanımı</h2></div></div><Suspense fallback={<LazyLoading label="Ekran süresi araçları hazırlanıyor…" />}><ScreenTimePanel entries={todayScreenTimeEntries} existingScreenshotHashes={new Set(state.screenTimeEntries.flatMap((entry) => entry.screenshotHash ? [entry.screenshotHash] : []))} onAddManual={(app, minutes, kind) => addScreenTimeEntries([{ app, minutes, kind }], 'manual', kind)} onAddScreenshot={(entries, hash) => addScreenTimeEntries(entries, 'screenshot', 'unclassified', hash)} onUpdate={updateScreenTimeEntry} onDelete={deleteScreenTimeEntry} /></Suspense></article></section></section> : activeTab === 'calendar' ? <Suspense fallback={<LazyLoading label="Takvim hazırlanıyor…" />}><CalendarView today={today} blocks={state.calendarBlocks ?? []} categories={activeFocusCategories} onSave={saveCalendarBlock} onDelete={deleteCalendarBlock} onDayClick={openDayDetail} /></Suspense> : <Suspense fallback={<LazyLoading label="İlerleme raporu hazırlanıyor…" />}><ProgressView savedSessions={state.sessions} state={reportingState} activeDates={activeDates} today={today} focusCategories={state.focusCategories} onSaveGoal={saveGoal} onDeleteGoal={deleteGoal} openGoalForm={() => setIsGoalFormOpen(true)} onDayClick={openDayDetail} onSaveFocus={saveWeeklyFocus} onSaveReview={saveWeeklyReview} /></Suspense>}
+    </> : activeTab === 'habits' ? <section className="tab-page"><section className="section-heading"><div><p className="eyebrow">GÜNLÜK RİTİM</p><h1>Alışkanlıkların</h1><p className="hero-copy">Miktar gir veya minimum/ideal durumunu tek dokunuşla kaydet.</p></div><button className="quiet-button" onClick={() => setIsHabitFormOpen(true)}>+ Yeni alışkanlık</button></section><section className="habit-grid">{activeHabits.map((habit) => <HabitCard key={habit.id} habit={habit} entry={todayLog[habit.id]} streak={habitStreak(habit, state.habitLog, today)} onSetEntry={setHabitEntry} />)}{activeHabits.length === 0 && <article className="card empty-tab-state"><span>🌱</span><h2>Yeni bir ritim oluştur</h2><p>Her gün veya seçtiğin günlerde tekrarlanacak ilk alışkanlığını ekle.</p><button className="timer-button" onClick={() => setIsHabitFormOpen(true)}>Alışkanlık ekle</button></article>}</section></section> : activeTab === 'journal' ? <section className="tab-page"><section className="section-heading"><div><p className="eyebrow">GÜNÜ KAPAT</p><h1>Günlük ve ekran süresi</h1><p className="hero-copy">Bugünü değerlendir; telefon kullanımını görünür hale getir.</p></div></section><section className="grid journal-grid"><ReflectionCard date={today} initial={state.reflections[today]} onSave={saveReflection} /><article className="card screen-time-card"><div className="card-heading"><div><p className="eyebrow">EKRAN SÜRESİ</p><h2>Bugünün telefon kullanımı</h2></div></div><Suspense fallback={<LazyLoading label="Ekran süresi araçları hazırlanıyor…" />}><ScreenTimePanel entries={todayScreenTimeEntries} existingScreenshotHashes={new Set(state.screenTimeEntries.flatMap((entry) => entry.screenshotHash ? [entry.screenshotHash] : []))} onAddManual={(app, minutes, kind) => addScreenTimeEntries([{ app, minutes, kind }], 'manual', kind)} onAddScreenshot={(entries, hash) => addScreenTimeEntries(entries, 'screenshot', 'unclassified', hash)} onUpdate={updateScreenTimeEntry} onDelete={deleteScreenTimeEntry} /></Suspense></article></section></section> : activeTab === 'calendar' ? <Suspense fallback={<LazyLoading label="Takvim hazırlanıyor…" />}><CalendarView today={today} blocks={state.calendarBlocks ?? []} categories={activeFocusCategories} onSave={saveCalendarBlock} onDelete={deleteCalendarBlock} onDayClick={openDayDetail} /></Suspense> : <Suspense fallback={<LazyLoading label="İlerleme raporu hazırlanıyor…" />}><ProgressView savedSessions={state.sessions} state={state} today={today} focusCategories={state.focusCategories} onSaveGoal={saveGoal} onDeleteGoal={deleteGoal} openGoalForm={() => setIsGoalFormOpen(true)} onDayClick={openDayDetail} onSaveFocus={saveWeeklyFocus} onSaveReview={saveWeeklyReview} /></Suspense>}
     </div>
-    {focusViewOpen && activeFocus && <FocusView title={activeFocus.title} seconds={activeFocus.breakEndsAt ? breakSeconds : timerSeconds} running={isRunning} breakActive={Boolean(activeFocus.breakEndsAt)} canStartBreak={canStartBreak} round={`${activeFocus.currentRound ?? 1}/${activeFocus.rounds ?? 1}`} pending={actions.pending} error={timerError} onToggle={isRunning ? pauseTimer : resumeTimer} onStartBreak={startBreak} onFinish={stopTimer} onClose={closeFocusView} />}
+    {focusViewOpen && activeFocus && <FocusView breakFinished={Boolean(activeFocus.breakEndsAt && breakSeconds <= 0)} title={activeFocus.title} seconds={activeFocus.breakEndsAt ? breakSeconds : timerSeconds} running={isRunning} breakActive={Boolean(activeFocus.breakEndsAt)} canStartBreak={canStartBreak} round={`${activeFocus.currentRound ?? 1}/${activeFocus.rounds ?? 1}`} pending={actions.pending} error={timerError} onToggle={isRunning ? pauseTimer : resumeTimer} onStartBreak={startBreak} onFinish={stopTimer} onDiscard={discardTimer} onClose={closeFocusView} />}
       {isHabitFormOpen && <HabitForm draft={habitDraft} areas={availableAreas} onChange={setHabitDraft} onClose={() => setIsHabitFormOpen(false)} onSubmit={createHabit} />}
     {isGoalFormOpen && <Suspense fallback={<LazyLoading label="Hedef formu hazırlanıyor…" overlay />}><GoalForm focusCategories={state.focusCategories} onClose={() => setIsGoalFormOpen(false)} onSave={async (goal) => { const ok = await saveGoal(goal); if (ok) setIsGoalFormOpen(false); return ok }} /></Suspense>}
     {selectedDate && <Suspense fallback={<LazyLoading label="Gün ayrıntıları hazırlanıyor…" overlay />}><DayDetailModal date={selectedDate} state={state} focusCategories={state.focusCategories} onClose={() => setSelectedDate(null)} onAddSession={addManualSession} onUpdateSession={updateSession} onDeleteSession={deleteSession} onSetHabitEntry={setHabitEntryForDate} onSaveReflection={saveReflectionForDate} onUpdateScreenTime={updateScreenTimeEntry} onDeleteScreenTime={deleteScreenTimeEntry} /></Suspense>}
     {isSettingsOpen && <SettingsModal state={state} today={today} storageMode={storageMode} cloud={cloud} hasActiveFocus={Boolean(activeFocus)} onClose={() => setIsSettingsOpen(false)} onImport={handleImportState} onRestoreRollback={restoreImportRollback} onRestoreTrash={restoreFromTrash} />}
     {isCustomizeOpen && <Suspense fallback={<LazyLoading label="Ayarlar hazırlanıyor…" overlay />}><CustomizeModal state={state} account={cloud.account} hasActiveFocus={Boolean(activeFocus)} onClose={() => setIsCustomizeOpen(false)} onOpenData={() => { setIsCustomizeOpen(false); setIsSettingsOpen(true) }} onSaveSettings={saveSettings} onSaveHabit={saveHabit} onArchiveHabit={archiveHabit} onDeleteHabit={deleteHabit} onAddFocusCategory={addFocusCategory} onSaveFocusCategory={saveFocusCategory} onArchiveFocusCategory={archiveFocusCategory} onDeleteFocusCategory={deleteFocusCategory} /></Suspense>}
-    {quickCaptureOpen && <AccessibleModal label="Hızlı odak kaydı" className="card universal-capture-modal" onClose={() => setQuickCaptureOpen(false)}><div className="card-heading"><div><p className="eyebrow">HIZLI KAYIT</p><h2>Her yerden odak ekle</h2></div><button type="button" className="modal-close" onClick={() => setQuickCaptureOpen(false)} aria-label="Kapat">×</button></div><QuickCapture selected={selected} categories={state.focusCategories} recent={state.experience?.recentEntries ?? []} onSave={async (...args) => { const error = await addManualSession(...args); if (!error) setQuickCaptureOpen(false); return error }} /></AccessibleModal>}
+    {quickCaptureOpen && <AccessibleModal label="Hızlı odak kaydı" className="card universal-capture-modal" onClose={() => setQuickCaptureOpen(false)}><div className="card-heading"><div><p className="eyebrow">HIZLI KAYIT</p><h2>Her yerden odak ekle</h2></div><button type="button" className="modal-close" onClick={() => setQuickCaptureOpen(false)} aria-label="Kapat">×</button></div><QuickCapture autoFocus selected={selected} categories={state.focusCategories} recent={state.experience?.recentEntries ?? []} onSave={async (...args) => { const error = await addManualSession(...args); if (!error) setQuickCaptureOpen(false); return error }} /></AccessibleModal>}
     {noteSessionId && <FocusNoteModal session={state.sessions.find((session) => session.id === noteSessionId)} onClose={() => setNoteSessionId(null)} onSave={saveSessionNote} />}
     {!state.settings.onboardingComplete && <OnboardingModal state={state} onComplete={completeOnboarding} />}
-    <button type="button" className="universal-capture-button" onClick={() => setQuickCaptureOpen(true)} aria-label="Hızlı odak kaydı aç" title="Hızlı kayıt (Ctrl+K)">+</button>
+    <button type="button" className="universal-capture-button" onClick={() => setQuickCaptureOpen(true)} aria-label="Hızlı odak kaydı aç" title="Hızlı kayıt (Ctrl+K)"><span>+</span><span className="capture-button-label">Hızlı kayıt</span></button>
     <footer className="app-footer"><span>Momentum v{__APP_VERSION__}</span><a href="/privacy.html">Gizlilik</a><a href="/terms.html">Koşullar</a><a href="/support.html">Destek</a></footer>
   </main></fieldset>{(!focusViewOpen || actions.pending || actions.notice?.kind === 'error') && <SaveFeedback actions={actions} />}</>
 }
@@ -1112,13 +1158,15 @@ function LazyLoading({ label, overlay = false }: { label: string; overlay?: bool
 function ReflectionCard({ date, initial, onSave }: { date: string; initial?: DailyReflection; onSave: (reflection: DailyReflection) => Promise<boolean> }) {
   const [reflection, setReflection] = useState<DailyReflection>(initial ?? { good: '', wasted: '', tomorrow: '' })
   const [saved, setSaved] = useState(false)
-  useEffect(() => { setReflection(initial ?? { good: '', wasted: '', tomorrow: '' }); setSaved(false) }, [date])
+  useEffect(() => {
+    const next = initial ?? { good: '', wasted: '', tomorrow: '' }
+    if (next.good !== reflection.good || next.wasted !== reflection.wasted || next.tomorrow !== reflection.tomorrow) { setReflection(next); setSaved(false) }
+  }, [date, initial?.good, initial?.wasted, initial?.tomorrow])
   const submit = async (event: FormEvent) => { event.preventDefault(); setSaved(await onSave(reflection)) }
   return <article className="card reflection-card"><div className="card-heading"><div><p className="eyebrow">GÜN SONU</p><h2>30 saniyelik değerlendirme</h2></div><span className={saved ? 'saved-note' : 'date-pill'}>{saved ? 'Kaydedildi ✓' : 'Akşam'}</span></div><form onSubmit={submit} className="reflection-form"><label>Bugün ne iyi gitti?<textarea maxLength={2000} value={reflection.good} onChange={(event) => { setReflection({ ...reflection, good: event.target.value }); setSaved(false) }} placeholder="Örn. Timerı açıp 2 saat odağımı korudum." /></label><label>Bugün nerede zaman kaybettim?<textarea maxLength={2000} value={reflection.wasted} onChange={(event) => { setReflection({ ...reflection, wasted: event.target.value }); setSaved(false) }} placeholder="Örn. Gereğinden fazla sosyal medya kullandım." /></label><label>Yarın en önemli şey ne?<textarea maxLength={2000} value={reflection.tomorrow} onChange={(event) => { setReflection({ ...reflection, tomorrow: event.target.value }); setSaved(false) }} placeholder="Örn. Algoritma ödevini teslim etmek." /></label><button className="reflection-save" type="submit">Değerlendirmeyi kaydet</button></form></article>
 }
-function ScoreRing({ score }: { score: number }) { return <div className="day-score" aria-label={`Günlük skor yüzde ${score}`}><svg viewBox="0 0 36 36"><path className="ring-bg" d="M18 2.0845a15.9155 15.9155 0 0 1 0 31.831a15.9155 15.9155 0 0 1 0-31.831" /><path className="ring-value" strokeDasharray={`${score}, 100`} d="M18 2.0845a15.9155 15.9155 0 0 1 0 31.831a15.9155 15.9155 0 0 1 0-31.831" /></svg><div><strong>{score}</strong><span>günlük skor</span></div></div> }
 function TodayHabits({ habits, log, onSetEntry, onOpenAll }: { habits: Habit[]; log: Record<string, HabitEntry>; onSetEntry: (id: string, entry: HabitEntry | null) => Promise<boolean>; onOpenAll: () => void }) {
-  return <article className="card today-habits"><div className="card-heading"><div><p className="eyebrow">BUGÜNÜN RİTMİ</p><h2>Alışkanlıklar</h2></div><button className="text-button" onClick={onOpenAll}>Miktar gir →</button></div><div className="today-habit-list">{habits.map((habit) => { const entry = log[habit.id]; return <div className={`today-habit-row ${entry && entry.status !== 'partial' ? 'done' : ''}`} key={habit.id} data-record={habit.id}><span className="today-habit-name"><HabitRing completed={Boolean(entry && entry.status !== 'partial')} value={entry?.status === 'ideal' ? 1 : entry?.status === 'minimum' ? 0.6 : 0} /><span><strong>{habit.name}</strong><small>{habit.minimum} / {habit.ideal}</small></span></span><div className="today-habit-actions"><button className={entry?.status === 'minimum' ? 'selected-min' : ''} onClick={() => onSetEntry(habit.id, entry?.status === 'minimum' && entry.amount === undefined ? null : { status: 'minimum' })}>Min</button><button className={entry?.status === 'ideal' ? 'selected-ideal' : ''} onClick={() => onSetEntry(habit.id, entry?.status === 'ideal' && entry.amount === undefined ? null : { status: 'ideal' })}>İdeal</button></div></div> })}{habits.length === 0 && <p className="empty-state">Etkin alışkanlık yok. Ayarlardan bir alışkanlığı etkinleştir.</p>}</div></article>
+  return <article className="card today-habits"><div className="card-heading"><div><p className="eyebrow">BUGÜNÜN RİTMİ</p><h2>Alışkanlıklar</h2></div><button className="text-button" onClick={onOpenAll}>Miktar gir →</button></div><div className="today-habit-list">{habits.map((habit) => { const entry = log[habit.id]; return <div className={`today-habit-row ${entry && entry.status !== 'partial' ? 'done' : ''}`} key={habit.id} data-record={habit.id}><span className="today-habit-name"><HabitRing completed={Boolean(entry && entry.status !== 'partial')} value={entry?.status === 'ideal' ? 1 : entry?.status === 'minimum' ? 0.6 : 0} /><span><strong>{habit.name}</strong><small>{habit.minimum} / {habit.ideal}</small></span></span><div className="today-habit-actions"><button aria-pressed={entry?.status === 'minimum'} className={entry?.status === 'minimum' ? 'selected-min' : ''} onClick={() => onSetEntry(habit.id, entry?.status === 'minimum' && entry.amount === undefined ? null : { status: 'minimum' })}>Min</button><button aria-pressed={entry?.status === 'ideal'} className={entry?.status === 'ideal' ? 'selected-ideal' : ''} onClick={() => onSetEntry(habit.id, entry?.status === 'ideal' && entry.amount === undefined ? null : { status: 'ideal' })}>İdeal</button></div></div> })}{habits.length === 0 && <p className="empty-state">Bugün için planlı alışkanlık yok. Tüm alışkanlıklarını inceleyebilirsin.</p>}</div></article>
 }
 function HabitCard({ habit, entry, streak, onSetEntry }: { habit: Habit; entry?: HabitEntry; streak: number; onSetEntry: (id: string, entry: HabitEntry | null) => Promise<boolean> }) {
   const [amountDraft, setAmountDraft] = useState(entry?.amount !== undefined ? String(entry.amount) : '')
@@ -1171,13 +1219,13 @@ function SettingsModal({ state, today, storageMode, cloud, hasActiveFocus, onClo
   const hasActiveFocusRef = useRef(hasActiveFocus)
   hasActiveFocusRef.current = hasActiveFocus
   const [geminiKey, setGeminiKey] = useState('')
-  const [legacyGeminiKey, setLegacyGeminiKey] = useState(() => localStorage.getItem('momentum-gemini-key') ?? '')
+  const [legacyGeminiKey, setLegacyGeminiKey] = useState(() => readLocalPreference('momentum-gemini-key') ?? '')
   const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null)
   const [geminiBusy, setGeminiBusy] = useState(false)
   const [geminiStatus, setGeminiStatus] = useState('')
   const [importCandidate, setImportCandidate] = useState<(BackupCandidate & { fileName: string }) | null>(null)
   const [importStatus, setImportStatus] = useState('')
-  const [hasRollback, setHasRollback] = useState(() => Boolean(localStorage.getItem(importRollbackStorageKey)))
+  const [hasRollback, setHasRollback] = useState(() => Boolean(readLocalPreference(importRollbackStorageKey)))
   const [automaticBackups, setAutomaticBackups] = useState<AutomaticBackup[]>([])
   const [backupStoreStatus, setBackupStoreStatus] = useState('Otomatik yedekler okunuyor…')
   const refreshAutomaticBackups = () => listAutomaticBackups().then((snapshots) => { setAutomaticBackups(snapshots); setBackupStoreStatus(snapshots.length ? `Son ${snapshots.length} doğrulanabilir sürüm yerel kurtarma deposunda.` : 'Henüz otomatik yedek oluşmadı.') }).catch(() => setBackupStoreStatus('Otomatik yedek deposu bu tarayıcıda kullanılamıyor.'))
@@ -1256,7 +1304,7 @@ function SettingsModal({ state, today, storageMode, cloud, hasActiveFocus, onClo
     setImportCandidate(null); setImportStatus('')
     try {
       if (hasActiveFocusRef.current) throw new Error('İçe aktarmadan önce açık odak oturumunu bitir.')
-      if (file.size > 5 * 1024 * 1024) throw new Error('Yedek dosyası en fazla 5 MB olabilir.')
+      if (file.size > 20 * 1024 * 1024) throw new Error('Yedek dosyası en fazla 20 MB olabilir.')
       const contents = await file.text()
       if (hasActiveFocusRef.current) throw new Error('Dosya okunurken bir odak oturumu başladı. Oturumu bitirip yedeği yeniden seç.')
       const candidate = validateBackup(JSON.parse(contents))
@@ -1317,7 +1365,7 @@ function SettingsModal({ state, today, storageMode, cloud, hasActiveFocus, onClo
         {hasRollback && <button className="rollback-button" type="button" disabled={hasActiveFocus} onClick={restoreRollback}>↶ Son içe aktarmayı geri al</button>}
       </section>
       <hr style={{ borderColor: '#ffffff12', margin: '0', borderStyle: 'solid', borderWidth: '1px 0 0 0' }} />
-      <section className="backup-settings automatic-backups"><div><p className="eyebrow">OTOMATİK KURTARMA</p><h3>Son güvenli sürümler</h3><p className="gemini-help">Değişikliklerden sonra son yedi sürüm ayrı bir tarayıcı deposunda tutulur. Her sürüm geri yüklenmeden önce şema doğrulamasından geçer.</p></div><p className="backup-store-status" role="status">{backupStoreStatus}</p>{automaticBackups.length > 0 && <div className="automatic-backup-list">{automaticBackups.map((snapshot, index) => <div key={snapshot.id}><span><strong>{index === 0 ? 'En yeni' : `${index + 1}. sürüm`}</strong>{new Date(snapshot.createdAt).toLocaleString('tr-TR')}</span><button type="button" disabled={hasActiveFocus} onClick={() => restoreAutomaticBackup(snapshot)}>Geri yükle</button></div>)}</div>}{localStorage.getItem(corruptStateStorageKey) && <button className="raw-recovery-button" type="button" onClick={downloadCorruptState}>Bozuk ham kaydı incelemek için indir</button>}</section>
+      <section className="backup-settings automatic-backups"><div><p className="eyebrow">OTOMATİK KURTARMA</p><h3>Son güvenli sürümler</h3><p className="gemini-help">Son yedi değişiklik sürümü ve son 30 kayıt gününün günlük son sürümleri ayrı bir tarayıcı deposunda tutulur. Tarayıcı verileri silinirse bu yedekler de silinir; JSON dosyası veya klasör yedeği ayrıca kullanılabilir. Her sürüm geri yüklenmeden önce şema doğrulamasından geçer.</p></div><p className="backup-store-status" role="status">{backupStoreStatus}</p>{automaticBackups.length > 0 && <div className="automatic-backup-list">{automaticBackups.map((snapshot, index) => <div key={snapshot.id}><span><strong>{index === 0 ? 'En yeni' : `${index + 1}. sürüm`}</strong>{new Date(snapshot.createdAt).toLocaleString('tr-TR')}</span><button type="button" disabled={hasActiveFocus} onClick={() => restoreAutomaticBackup(snapshot)}>Geri yükle</button></div>)}</div>}{readLocalPreference(corruptStateStorageKey) && <button className="raw-recovery-button" type="button" onClick={downloadCorruptState}>Bozuk ham kaydı incelemek için indir</button>}</section>
       <hr style={{ borderColor: '#ffffff12', margin: '0', borderStyle: 'solid', borderWidth: '1px 0 0 0' }} />
       <Suspense fallback={<section className="external-backup-panel" aria-busy="true"><p className="gemini-help">Cihaz dışı yedekleme hazırlanıyor…</p></section>}><ExternalBackupPanel state={state} /></Suspense>
       <hr style={{ borderColor: '#ffffff12', margin: '0', borderStyle: 'solid', borderWidth: '1px 0 0 0' }} />

@@ -10,6 +10,8 @@ const DIST = path.resolve(__dirname, 'dist')
 const DIST_PREFIX = `${DIST.toLocaleLowerCase()}${path.sep}`
 const DATA_DIR = path.resolve(process.env.MOMENTUM_DATA_DIR || path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Momentum'))
 const SECRET_PATH = path.join(DATA_DIR, 'gemini-key.dpapi')
+const BACKUP_DIRECTORY_NAME = 'Momentum Yedekleri'
+const GOOGLE_DRIVE_ROOT_NAMES = ["Drive'ım", 'My Drive']
 const POWERSHELL = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
 const allowedHosts = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`])
 let cachedGeminiKey = null
@@ -94,6 +96,68 @@ function removeGeminiKey() {
   fs.rmSync(SECRET_PATH, { force: true })
 }
 
+function findGoogleDriveBackupDirectory() {
+  const configured = process.env.MOMENTUM_GOOGLE_DRIVE_BACKUP_DIR
+  if (configured && fs.existsSync(configured) && fs.statSync(configured).isDirectory()) return path.resolve(configured)
+  if (process.platform !== 'win32') return null
+  for (let code = 'D'.charCodeAt(0); code <= 'Z'.charCodeAt(0); code += 1) {
+    const drive = `${String.fromCharCode(code)}:\\`
+    for (const rootName of GOOGLE_DRIVE_ROOT_NAMES) {
+      const driveRoot = path.join(drive, rootName)
+      try {
+        if (!fs.existsSync(driveRoot) || !fs.statSync(driveRoot).isDirectory()) continue
+        const destination = path.join(driveRoot, BACKUP_DIRECTORY_NAME)
+        fs.mkdirSync(destination, { recursive: true })
+        return destination
+      } catch { /* Bu sürücü kullanılamıyorsa diğer harfleri dene. */ }
+    }
+  }
+  return null
+}
+
+function validateBackupContents(contents) {
+  if (typeof contents !== 'string' || Buffer.byteLength(contents, 'utf8') > 20 * 1024 * 1024) throw new HttpError(413, 'Yedek en fazla 20 MB olabilir.')
+  let backup
+  try { backup = JSON.parse(contents) } catch { throw new HttpError(400, 'Yedek geçerli JSON değil.') }
+  if (!backup || backup.format !== 'momentum-backup' || backup.version !== 3 || typeof backup.exportedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(backup.exportedAt) || !Number.isFinite(Date.parse(backup.exportedAt)) || new Date(backup.exportedAt).toISOString() !== backup.exportedAt) throw new HttpError(400, 'Momentum yedek zarfı geçersiz.')
+  const data = backup.data
+  if (!data || typeof data !== 'object' || !Array.isArray(data.sessions) || !Array.isArray(data.habits) || !data.settings || typeof data.settings !== 'object') throw new HttpError(400, 'Momentum yedek verisi eksik veya geçersiz.')
+  return backup.exportedAt.slice(0, 10)
+}
+
+function writeVerifiedBackupFile(directory, fileName, contents) {
+  if (!/^momentum-(latest|\d{4}-\d{2}-\d{2})\.json$/.test(fileName)) throw new Error('Geçersiz yedek dosyası adı.')
+  const target = path.join(directory, fileName)
+  const temporary = path.join(directory, `.${fileName}.${process.pid}.${Date.now()}.tmp`)
+  let descriptor
+  try {
+    descriptor = fs.openSync(temporary, 'wx', 0o600)
+    fs.writeFileSync(descriptor, contents, 'utf8')
+    fs.fsyncSync(descriptor)
+    fs.closeSync(descriptor); descriptor = undefined
+    if (fs.readFileSync(temporary, 'utf8') !== contents) throw new Error(`${fileName} yazımı doğrulanamadı; önceki yedek korundu.`)
+    fs.renameSync(temporary, target)
+    if (fs.readFileSync(target, 'utf8') !== contents) throw new Error(`${fileName} yazıldı ancak doğrulanamadı.`)
+  } finally {
+    if (descriptor !== undefined) try { fs.closeSync(descriptor) } catch { /* Kaynak zaten kapanmış olabilir. */ }
+    fs.rmSync(temporary, { force: true })
+  }
+}
+
+function writeGoogleDriveBackup(directory, contents) {
+  const day = validateBackupContents(contents)
+  writeVerifiedBackupFile(directory, 'momentum-latest.json', contents)
+  writeVerifiedBackupFile(directory, `momentum-${day}.json`, contents)
+  return { lastBackupAt: JSON.parse(contents).exportedAt }
+}
+
+function googleDriveBackupStatus() {
+  const directory = findGoogleDriveBackupDirectory()
+  if (!directory) return { available: false }
+  const latest = path.join(directory, 'momentum-latest.json')
+  return { available: true, directoryName: BACKUP_DIRECTORY_NAME, lastBackupAt: fs.existsSync(latest) ? fs.statSync(latest).mtime.toISOString() : undefined }
+}
+
 function isInsideDist(candidate) {
   const normalized = path.resolve(candidate).toLocaleLowerCase()
   return normalized === DIST.toLocaleLowerCase() || normalized.startsWith(DIST_PREFIX)
@@ -107,6 +171,7 @@ function resolveRequestPath(rawUrl) {
   const normalizedForCheck = decodedPath.replace(/\\/g, '/')
   if (normalizedForCheck.split('/').includes('..')) return { error: 403 }
   const relativePath = normalizedForCheck.replace(/^\/+/, '') || 'index.html'
+  if (path.win32.isAbsolute(relativePath)) return { error: 403 }
   const candidate = path.resolve(DIST, relativePath)
   if (!isInsideDist(candidate)) return { error: 403 }
   return { candidate, relativePath }
@@ -250,6 +315,17 @@ async function handleApi(req, res) {
     sendJson(res, 200, { entries: await analyzeScreenTime(body) }); return true
   }
 
+  if (apiPath === '/api/backups/google-drive') {
+    if (req.method === 'GET') { sendJson(res, 200, googleDriveBackupStatus()); return true }
+    if (req.method !== 'POST') throw new HttpError(405, 'Method Not Allowed')
+    if (!String(req.headers['content-type'] || '').toLocaleLowerCase().startsWith('application/json')) throw new HttpError(415, 'Content-Type application/json olmalı.')
+    const directory = findGoogleDriveBackupDirectory()
+    if (!directory) throw new HttpError(409, 'Google Drive for desktop veya Momentum Yedekleri klasörü bulunamadı.')
+    const body = await readJson(req, 21 * 1024 * 1024)
+    const result = writeGoogleDriveBackup(directory, body?.backup)
+    sendJson(res, 200, { available: true, directoryName: BACKUP_DIRECTORY_NAME, ...result }); return true
+  }
+
   throw new HttpError(404, 'Not Found')
 }
 
@@ -289,4 +365,4 @@ if (require.main === module) {
   createServer().listen(PORT, HOST, () => { console.log(`Momentum ready at http://${HOST}:${PORT}`) })
 }
 
-module.exports = { createServer, protectSecret, unprotectSecret, validateImagePayload }
+module.exports = { createServer, protectSecret, unprotectSecret, validateImagePayload, validateBackupContents, writeVerifiedBackupFile, writeGoogleDriveBackup }

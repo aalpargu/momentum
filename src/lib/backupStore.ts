@@ -1,10 +1,10 @@
+import { retainedBackupIds } from './backupRetention.ts'
 import { openIndexedDatabase, runIndexedTransaction } from './indexedDb'
 
 export type AutomaticBackup = { id: number; createdAt: string; payload: string }
 
 const databaseName = 'momentum-recovery-v1'
 const storeName = 'snapshots'
-const maximumSnapshots = 7
 let saveQueue: Promise<void> = Promise.resolve()
 
 function openDatabase() {
@@ -24,13 +24,18 @@ export async function listAutomaticBackups(): Promise<AutomaticBackup[]> {
 
 async function performAutomaticBackup(payload: string) {
   if (typeof indexedDB === 'undefined' || !payload) return
-  const existing = await listAutomaticBackups()
-  if (existing[0]?.payload === payload) return
   const database = await openDatabase()
   try {
     await runIndexedTransaction(database, storeName, 'readwrite', store => {
-      store.add({ createdAt: new Date().toISOString(), payload })
-      existing.slice(maximumSnapshots - 1).forEach(snapshot => store.delete(snapshot.id))
+      const request = store.getAll()
+      request.onsuccess = () => {
+        const existing = (request.result as AutomaticBackup[]).sort((a, b) => b.id - a.id)
+        if (existing[0]?.payload === payload) return
+        const createdAt = new Date().toISOString()
+        const keep = retainedBackupIds([{ id: (existing[0]?.id ?? 0) + 1, createdAt }, ...existing])
+        store.add({ createdAt, payload })
+        existing.filter(snapshot => !keep.has(snapshot.id)).forEach(snapshot => store.delete(snapshot.id))
+      }
     })
   } finally { database.close() }
 }

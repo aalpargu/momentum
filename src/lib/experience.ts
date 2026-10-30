@@ -47,17 +47,17 @@ export function validateStateTotals(state: AppState) {
       totals.set(item.date, sum)
     }
   }
-  if (Object.values(state.dailyPlans).some(plan => plan.length > 3)) throw new Error('Bir gün için en fazla 3 öncelik eklenebilir.')
 }
 export function milestoneLabels(state: AppState): Map<string, string> {
   const result = new Map<string, string>()
   const hours = state.sessions.reduce((sum, session) => sum + session.seconds / 3600, 0)
   for (const threshold of [10, 50, 100, 500]) if (hours >= threshold) result.set('hours:' + threshold, threshold === 10 ? 'İlk 10 saatini tamamladın!' : threshold + ' saatlik emek birikti!')
-  const dates = new Set(state.sessions.filter(s => s.seconds > 0).map(s => s.date))
-  Object.entries(state.habitLog).forEach(([date, log]) => { if (Object.values(log).some(entry => entry.status !== 'partial')) dates.add(date) })
+  const totals = new Map<string, number>()
+  for (const session of state.sessions) totals.set(session.date, (totals.get(session.date) ?? 0) + session.seconds)
+  const dates = new Set([...totals].filter(([, seconds]) => seconds >= state.settings.dailyFocusMinutes * 60).map(([date]) => date))
   let run = 0, best = 0, previous = ''
   for (const date of [...dates].sort()) { run = previous && shiftDay(previous, 1) === date ? run + 1 : 1; best = Math.max(best, run); previous = date }
-  for (const threshold of [7, 30, 100]) if (best >= threshold) result.set('streak:' + threshold, threshold + ' günlük seriye ulaştın!')
+  for (const threshold of [7, 30, 100]) if (best >= threshold) result.set('streak:' + threshold, threshold + ' günlük çalışma hedefi serisine ulaştın!')
   for (const goal of state.goals) {
     const automatic = goal.unit === 'saat' && goal.activity !== 'manual' ? state.sessions.filter(s => goal.activity === 'all' || s.title === goal.activity).reduce((sum, s) => sum + s.seconds / 3600, 0) : 0
     if (goal.target > 0 && goal.manualProgress + automatic >= goal.target) result.set('goal:' + goal.id, 'Hedef tamamlandı: ' + goal.title)

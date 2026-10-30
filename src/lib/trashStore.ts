@@ -22,6 +22,10 @@ function readFallback() {
   catch { return [] }
 }
 
+function combine(items: TrashItem[]) {
+  return retained([...new Map([...readFallback(), ...items].map(item => [item.id, item])).values()])
+}
+
 function writeFallback(items: TrashItem[]) {
   localStorage.setItem(fallbackKey, JSON.stringify(retained(items)))
 }
@@ -32,9 +36,7 @@ export async function listTrashItems(): Promise<TrashItem[]> {
     const database = await openDatabase()
     try {
       const stored = await runIndexedTransaction<TrashItem[]>(database, storeName, 'readonly', store => store.getAll()) ?? []
-      const items = retained(stored)
-      if (items.length !== stored.length) await runIndexedTransaction(database, storeName, 'readwrite', store => { store.clear(); items.forEach(item => store.put(item)) })
-      return items
+      return combine(stored)
     }
     finally { database.close() }
   } catch { return readFallback() }
@@ -44,9 +46,16 @@ export async function addTrashItem(kind: TrashKind, label: string, payload: unkn
   const item = createTrashItem(kind, label, payload)
   if (typeof indexedDB !== 'undefined') {
     try {
-      const existing = await listTrashItems()
       const database = await openDatabase()
-      try { await runIndexedTransaction(database, storeName, 'readwrite', store => { store.put(item); existing.slice(maximumItems - 1).forEach(entry => store.delete(entry.id)) }) }
+      try { await runIndexedTransaction(database, storeName, 'readwrite', store => {
+        const request = store.getAll()
+        request.onsuccess = () => {
+          const existing = request.result as TrashItem[]
+          const keep = new Set(retained([item, ...existing]).map(entry => entry.id))
+          store.put(item)
+          existing.filter(entry => !keep.has(entry.id)).forEach(entry => store.delete(entry.id))
+        }
+      }) }
       finally { database.close() }
       return item
     } catch { /* Tarayıcı IndexedDB'yi engellerse küçük yerel geri dönüş deposunu kullan. */ }
@@ -56,23 +65,22 @@ export async function addTrashItem(kind: TrashKind, label: string, payload: unkn
 }
 
 export async function removeTrashItem(id: string) {
+  const fallback = readFallback()
   if (typeof indexedDB !== 'undefined') {
     try {
       const database = await openDatabase()
       try { await runIndexedTransaction(database, storeName, 'readwrite', store => store.delete(id)) }
       finally { database.close() }
-    } catch { /* Geri dönüş deposu da aşağıda temizlenir. */ }
+    } catch (error) { if (!fallback.some(item => item.id === id)) throw error }
   }
-  writeFallback(readFallback().filter(item => item.id !== id))
+  if (fallback.some(item => item.id === id)) writeFallback(fallback.filter(item => item.id !== id))
 }
 
 export async function clearTrashItems() {
   if (typeof indexedDB !== 'undefined') {
-    try {
-      const database = await openDatabase()
-      try { await runIndexedTransaction(database, storeName, 'readwrite', store => store.clear()) }
-      finally { database.close() }
-    } catch { /* Yerel geri dönüş deposu yine temizlenir. */ }
+    const database = await openDatabase()
+    try { await runIndexedTransaction(database, storeName, 'readwrite', store => store.clear()) }
+    finally { database.close() }
   }
   localStorage.removeItem(fallbackKey)
 }

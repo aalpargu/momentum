@@ -4,7 +4,7 @@ import { createCommitQueue, milestoneLabels, newMilestones, saveFailure, validat
 import { saveAutomaticBackup } from '../lib/backupStore'
 import { Icon } from './Icon'
 
-type Notice = { kind: 'saving' | 'saved' | 'error'; text: string }
+type Notice = { kind: 'saving' | 'saved' | 'error' | 'warning'; text: string }
 type Celebration = { label: string; big: boolean } | null
 function chime() {
   try {
@@ -69,7 +69,7 @@ export function useSavedActions(read: () => AppState, publish: (next: AppState) 
       if (next !== previous) {
         setUndoState(undoing ? null : previous)
         highlightChanges(previous, next)
-        void saveAutomaticBackup(JSON.stringify(previous)).then(() => saveAutomaticBackup(JSON.stringify(next))).catch(() => undefined)
+        void saveAutomaticBackup(JSON.stringify(previous)).then(() => saveAutomaticBackup(JSON.stringify(next))).catch(() => { setDismissed(false); setNotice({ kind: 'warning', text: 'Ana kayıt saklandı, ancak otomatik kurtarma kopyası yazılamadı. Veri yönetiminden JSON yedeği alabilirsin.' }) })
       }
       setNotice({ kind: 'saved', text: undoing ? 'Geri alındı ve kaydedildi.' : 'Kaydedildi' })
       if (milestones.length) {
@@ -79,7 +79,7 @@ export function useSavedActions(read: () => AppState, publish: (next: AppState) 
       } else if (undoing) setCelebration(null)
       return true
     } catch (error) {
-      setNotice({ kind: 'error', text: error instanceof Error && /24 saat|öncelik|çakış|geçerli/.test(error.message) ? error.message : saveFailure })
+      setNotice({ kind: 'error', text: error instanceof Error && /24 saat|öncelik|çakış|[Gg]eçerli|Başka bir sekmede/.test(error.message) ? error.message : saveFailure })
       return false
     } finally { busyRef.current = false; setPending(false) }
   }
@@ -101,5 +101,5 @@ export function useSavedActions(read: () => AppState, publish: (next: AppState) 
   return { mutate, pending, notice: dismissed ? null : notice, dismiss: () => setDismissed(true), undo: () => undoState ? mutate(undoState, true) : Promise.resolve(false), canUndo: Boolean(undoState), celebration, dismissCelebration: () => setCelebration(null) }
 }
 export function SaveFeedback({ actions }: { actions: ReturnType<typeof useSavedActions> }) {
-  return <><div className="save-feedback" aria-live="polite" aria-atomic="true">{actions.notice && <div className={'save-toast ' + actions.notice.kind}><Icon name={actions.notice.kind === 'error' ? 'alert' : actions.notice.kind === 'saving' ? 'clock' : 'check'} /><span>{actions.notice.text}</span>{actions.canUndo && !actions.pending && <button onClick={actions.undo}>Geri al</button>}{!actions.pending && <button className="toast-close" onClick={actions.dismiss} aria-label="Bildirimi kapat"><Icon name="close" size={16} /></button>}</div>}</div>{actions.celebration && <aside className={'milestone-toast ' + (actions.celebration.big ? 'milestone-big' : '')} role="status"><Icon name="spark" /><div><small>EMEĞİN BİRİKİYOR</small><strong>{actions.celebration.label}</strong></div><button onClick={actions.dismissCelebration} aria-label="Kutlamayı kapat"><Icon name="close" size={16} /></button>{actions.celebration.big && <div className="celebration-particles" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ '--i': i } as React.CSSProperties} />)}</div>}</aside>}</>
+  return <><div className="save-feedback" aria-live="polite" aria-atomic="true">{actions.notice && <div className={'save-toast ' + actions.notice.kind}><Icon name={actions.notice.kind === 'error' || actions.notice.kind === 'warning' ? 'alert' : actions.notice.kind === 'saving' ? 'clock' : 'check'} /><span>{actions.notice.text}</span>{actions.canUndo && !actions.pending && <button onClick={actions.undo}>Geri al</button>}{!actions.pending && <button className="toast-close" onClick={actions.dismiss} aria-label="Bildirimi kapat"><Icon name="close" size={16} /></button>}</div>}</div>{actions.celebration && <aside className={'milestone-toast ' + (actions.celebration.big ? 'milestone-big' : '')} role="status"><Icon name="spark" /><div><small>EMEĞİN BİRİKİYOR</small><strong>{actions.celebration.label}</strong></div><button onClick={actions.dismissCelebration} aria-label="Kutlamayı kapat"><Icon name="close" size={16} /></button>{actions.celebration.big && <div className="celebration-particles" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ '--i': i } as React.CSSProperties} />)}</div>}</aside>}</>
 }
