@@ -2,7 +2,7 @@ project_id = "multiplife"
 
 [auth]
 site_url = "http://localhost:5173"
-additional_redirect_urls = ["http://127.0.0.1:5173"]
+additional_redirect_urls = ["http://127.0.0.1:5173", "https://multiplife.vercel.app", "https://momentum-kappa-sepia.vercel.app"]
 
 [functions.analyze-screen-time]
 verify_jwt = true

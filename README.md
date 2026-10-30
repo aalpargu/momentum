@@ -4,7 +4,7 @@
 
 A personal productivity PWA that brings focus sessions, tasks, habits, screen-time records and long-term goals into one workspace. Everyday records are saved locally; accounts, cloud sync and AI-assisted screen-time analysis are optional.
 
-[Türkçe](README.tr.md) · [Hosted app](https://momentum-kappa-sepia.vercel.app) · [Architecture and decisions](docs/ARCHITECTURE.md) · [Verification](docs/VERIFICATION.md)
+[Türkçe](README.tr.md) · [Hosted app](https://multiplife.vercel.app) · [Architecture and decisions](docs/ARCHITECTURE.md) · [Verification](docs/VERIFICATION.md)
 
 ![Multiplife dashboard](outputs/ui-ux/today-desktop.png)
 

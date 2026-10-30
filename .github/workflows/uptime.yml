@@ -16,13 +16,13 @@ jobs:
       - name: Uygulama kabuğunu doğrula
         run: |
           curl --fail --silent --show-error --location --max-time 20 --retry 2 \
-            https://momentum-kappa-sepia.vercel.app/ > /dev/null
+            https://multiplife.vercel.app/ > /dev/null
       - name: Gizlilik ve destek sayfalarını doğrula
         run: |
           curl --fail --silent --show-error --location --max-time 20 --retry 2 \
-            https://momentum-kappa-sepia.vercel.app/privacy.html > /dev/null
+            https://multiplife.vercel.app/privacy.html > /dev/null
           curl --fail --silent --show-error --location --max-time 20 --retry 2 \
-            https://momentum-kappa-sepia.vercel.app/support.html > /dev/null
+            https://multiplife.vercel.app/support.html > /dev/null
       - name: Supabase fonksiyonunun kimlik doğrulamayı zorunlu tuttuğunu doğrula
         run: |
           status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 \

@@ -12,13 +12,13 @@ type ReminderPreferences = {
 }
 
 type PushRow = { subscription_id: string; endpoint: string; p256dh: string; auth_key: string; notification_kind: 'plan' | 'habits' | 'reflection' | 'weekly' }
-const allowedOrigins = new Set(['https://momentum-kappa-sepia.vercel.app', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://127.0.0.1:4173'])
+const allowedOrigins = new Set(['https://multiplife.vercel.app', 'https://momentum-kappa-sepia.vercel.app', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://127.0.0.1:4173'])
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/
 
 function headers(request: Request) {
   const origin = request.headers.get('origin') ?? ''
   return {
-    'Access-Control-Allow-Origin': allowedOrigins.has(origin) ? origin : 'https://momentum-kappa-sepia.vercel.app',
+    'Access-Control-Allow-Origin': allowedOrigins.has(origin) ? origin : 'https://multiplife.vercel.app',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Vary': 'Origin',

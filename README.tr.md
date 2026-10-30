@@ -6,7 +6,7 @@ Multiplife; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekra
 
 > Durum: v1.2.1. Hesap, RLS korumalı bulut senkronizasyonu, sunucu taraflı AI ve isteğe bağlı Web Push hatırlatıcıları Supabase üzerinden çalışır. Proje, ücretli alan adı veya ücretli servis gerektirmeden sağlayıcıların ücretsiz katmanlarına göre yapılandırılmıştır.
 
-**Canlı demo:** [momentum-kappa-sepia.vercel.app](https://momentum-kappa-sepia.vercel.app)
+**Canlı demo:** [multiplife.vercel.app](https://multiplife.vercel.app)
 
 ![Multiplife bugün ekranı](outputs/ui-ux/today-desktop.png)
 

@@ -47,3 +47,5 @@ The service-worker implementation fingerprints release content and limits cache 
 ## Name-change compatibility
 
 The product is now **Multiplife** and uses the slogan **Multiply Your Life**. Browser databases, saved preferences, backup format identifiers and existing directory permissions retain their original internal identifiers so an upgrade can still open existing records and backups. New downloads and backup files use `multiplife-` names. The local companion accepts `MULTIPLIFE_*` configuration variables and also accepts existing `MOMENTUM_*` variables; it reuses an existing local secret directory or Drive backup folder. The service worker removes obsolete caches under both names while preserving the active release and unrelated applications. The existing hosted URL remains supported so browser records stay available on their original origin.
+
+The canonical production URL is https://multiplife.vercel.app. The previous hosted URL remains available. Browser-local data is scoped to each origin; use cloud sync or export/import a JSON backup when moving records to the new URL. Both origins remain allowed for push requests and authentication redirects.
