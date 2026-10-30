@@ -1,4 +1,4 @@
-# Momentum ücretsiz işletim notları
+# Multiplife ücretsiz işletim notları
 
 Bu kurulum yalnız Vercel Hobby, Supabase Free ve herkese açık GitHub deposunun ücretsiz GitHub Actions kotasını hedefler. Alan adı, ücretli izleme, ücretli yedekleme veya plan yükseltmesi gerekmez.
 
@@ -12,7 +12,7 @@ Bu kurulum yalnız Vercel Hobby, Supabase Free ve herkese açık GitHub deposunu
 ## Yedekleme düzeni
 
 - Chromium tabanlı masaüstü tarayıcıda Veri Yönetimi → Cihaz dışı yedek bölümünden OneDrive veya Google Drive’ın bilgisayardaki senkronize klasörünü seç.
-- Momentum her başarılı veri kaydından sonra `momentum-latest.json` dosyasını ve o günün `momentum-YYYY-MM-DD.json` kopyasını günceller.
+- Multiplife her başarılı veri kaydından sonra `multiplife-latest.json` dosyasını ve o günün `multiplife-YYYY-MM-DD.json` kopyasını günceller.
 - Firefox ve iOS gibi klasör API'sini sunmayan ortamlarda ayda bir `JSON Yedeği İndir` seçeneğini kullan.
 - Supabase şeması ve fonksiyonları migration/kaynak kod olarak Git'tedir. Kullanıcı içeriğinin taşınabilir asıl kurtarma kopyası JSON yedeğidir.
 

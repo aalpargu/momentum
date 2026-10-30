@@ -25,7 +25,7 @@ export function CloudAccountPanel({ cloud }: { cloud: CloudSyncController }) {
     setPassword('')
   }
 
-  if (!cloud.configured) return <section className="cloud-account cloud-disabled"><div className="cloud-heading"><div><p className="eyebrow">HESAP VE BULUT</p><h3>Bu cihazda kullanılıyor</h3></div><span>Yerel</span></div><p>Momentum çevrimdışı çalışmaya devam ediyor. Hesap ve cihazlar arası senkronizasyon, Supabase ortam değerleri eklendiğinde açılacak.</p></section>
+  if (!cloud.configured) return <section className="cloud-account cloud-disabled"><div className="cloud-heading"><div><p className="eyebrow">HESAP VE BULUT</p><h3>Bu cihazda kullanılıyor</h3></div><span>Yerel</span></div><p>Multiplife çevrimdışı çalışmaya devam ediyor. Hesap ve cihazlar arası senkronizasyon, Supabase ortam değerleri eklendiğinde açılacak.</p></section>
 
   const needsChoice = cloud.account && cloud.phase === 'choice'
   const connected = cloud.account && ['synced', 'syncing'].includes(cloud.phase)
@@ -46,7 +46,7 @@ export function CloudAccountPanel({ cloud }: { cloud: CloudSyncController }) {
         <form onSubmit={event => { event.preventDefault(); if (/^\S+@\S+\.\S+$/.test(newEmail.trim())) void cloud.updateEmail(newEmail.trim()) }}><label>Yeni e-posta<input type="email" autoComplete="email" value={newEmail} onChange={event => setNewEmail(event.target.value)} /></label><button disabled={cloud.busy || !/^\S+@\S+\.\S+$/.test(newEmail.trim()) || newEmail.trim() === cloud.account?.email}>E-postayı değiştir</button></form>
         <form onSubmit={event => { event.preventDefault(); if (newPassword.length >= 8) { void cloud.updatePassword(newPassword); setNewPassword('') } }}><label>Yeni parola<input type="password" minLength={8} autoComplete="new-password" value={newPassword} onChange={event => setNewPassword(event.target.value)} /></label><button disabled={cloud.busy || newPassword.length < 8}>Parolayı değiştir</button></form>
         <button type="button" disabled={cloud.busy} onClick={() => void cloud.signOutEverywhere()}>Tüm cihazlardan çık</button>
-        <div className="account-danger"><strong>Hesabı sil</strong><p>Bulut hesabı ve sunucudaki Momentum verisi kalıcı olarak silinir. Bu cihazdaki yerel kayıt korunur.</p><label>Onaylamak için SİL yaz<input value={deletePhrase} onChange={event => setDeletePhrase(event.target.value)} /></label><button type="button" disabled={cloud.busy || deletePhrase !== 'SİL'} onClick={() => void cloud.deleteAccount()}>Hesabı ve bulut verisini sil</button></div>
+        <div className="account-danger"><strong>Hesabı sil</strong><p>Bulut hesabı ve sunucudaki Multiplife verisi kalıcı olarak silinir. Bu cihazdaki yerel kayıt korunur.</p><label>Onaylamak için SİL yaz<input value={deletePhrase} onChange={event => setDeletePhrase(event.target.value)} /></label><button type="button" disabled={cloud.busy || deletePhrase !== 'SİL'} onClick={() => void cloud.deleteAccount()}>Hesabı ve bulut verisini sil</button></div>
       </div>}
       <button className="cloud-signout" type="button" disabled={cloud.busy} onClick={() => void cloud.signOut()}>Bu cihazdan çık</button>
     </div>}

@@ -1,16 +1,18 @@
-# Momentum
+# Multiplife
+
+**Multiply Your Life.**
 
 A personal productivity PWA that brings focus sessions, tasks, habits, screen-time records and long-term goals into one workspace. Everyday records are saved locally; accounts, cloud sync and AI-assisted screen-time analysis are optional.
 
 [Türkçe](README.tr.md) · [Hosted app](https://momentum-kappa-sepia.vercel.app) · [Architecture and decisions](docs/ARCHITECTURE.md) · [Verification](docs/VERIFICATION.md)
 
-![Momentum dashboard](outputs/ui-ux/today-desktop.png)
+![Multiplife dashboard](outputs/ui-ux/today-desktop.png)
 
-> This maintenance update brings the current saved development source into the repository. The hosted app and the existing screenshot may show an earlier interface. The package version remains `1.2.1`; this is a source update, not a new release announcement.
+> Existing records and backups remain compatible after the name change. See [name-change compatibility](docs/ARCHITECTURE.md#name-change-compatibility) for the retained internal identifiers.
 
 ## Why I built it
 
-I wanted one place to plan useful work and compare the plan with time actually recorded. A task list alone does not show where time went; a timer alone does not connect sessions to daily priorities. Momentum connects those records while keeping the core workflow available without an account.
+I wanted one place to plan useful work and compare the plan with time actually recorded. A task list alone does not show where time went; a timer alone does not connect sessions to daily priorities. Multiplife connects those records while keeping the core workflow available without an account.
 
 ## What it does
 
@@ -91,7 +93,7 @@ Development cloud-conflict tests use an isolated service mock. Passing those tes
 
 ## Optional desktop backup
 
-The Windows launcher `Momentum.cmd` starts the local companion. The companion can discover a Google Drive for desktop folder and write a latest backup plus a dated backup. Writes are verified after saving. The Google Drive desktop application performs the actual remote upload; a successful local write alone does not confirm cloud upload.
+The Windows launcher `Multiplife.cmd` starts the local companion. The companion can discover a Google Drive for desktop folder and write a latest backup plus a dated backup. Writes are verified after saving. The Google Drive desktop application performs the actual remote upload; a successful local write alone does not confirm cloud upload.
 
 The web-hosted app cannot access this local server. On compatible desktop browsers, the alternative folder workflow requires the user to select a folder and grant permission. See [the Turkish guide](README.tr.md#google-drive-klasör-yedeği) for the existing setup steps.
 
@@ -106,6 +108,6 @@ The web-hosted app cannot access this local server. On compatible desktop browse
 
 ## Project status
 
-Momentum is a personal application with a hosted version and an actively developed source tree. Current checks and remaining browser/device checks are listed in the verification record.
+Multiplife is a personal application with a hosted version and an actively developed source tree. Current checks and remaining browser/device checks are listed in the verification record.
 
 See [CHANGELOG.md](CHANGELOG.md), [RELEASE.md](RELEASE.md), [OPERATIONS.md](OPERATIONS.md) and [SECURITY.md](SECURITY.md) for the existing release and maintenance notes.

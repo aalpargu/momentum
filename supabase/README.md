@@ -10,4 +10,4 @@
 
 Browser'a yalnızca publishable key verilir. Secret/service-role anahtarları hiçbir zaman `VITE_` değişkenlerinde veya Git geçmişinde tutulmaz.
 
-`momentum-push-reminders` görevi beş dakikada bir çalışır. Bu düzenli veritabanı işi ücretsiz projenin etkin kalmasına yardımcı olur; sağlayıcı kotası dolarsa ücretli plana geçmek yerine arka plan bildirimlerini kapatın. Şema migration'larla Git'te tutulur; kişisel uygulama verisi için Momentum'un JSON/klasör yedeklerini kullanın.
+`multiplife-push-reminders` görevi beş dakikada bir çalışır. Bu düzenli veritabanı işi ücretsiz projenin etkin kalmasına yardımcı olur; sağlayıcı kotası dolarsa ücretli plana geçmek yerine arka plan bildirimlerini kapatın. Şema migration'larla Git'te tutulur; kişisel uygulama verisi için Multiplife'ın JSON/klasör yedeklerini kullanın.

@@ -1,12 +1,14 @@
-# Momentum
+# Multiplife
 
-Momentum; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekran süresini ve uzun vadeli hedefleri tek yerde takip eden local-first bir React PWA'dır.
+**Multiply Your Life.**
+
+Multiplife; odak oturumlarını, alışkanlıkları, günlük öncelikleri, ekran süresini ve uzun vadeli hedefleri tek yerde takip eden local-first bir React PWA'dır.
 
 > Durum: v1.2.1. Hesap, RLS korumalı bulut senkronizasyonu, sunucu taraflı AI ve isteğe bağlı Web Push hatırlatıcıları Supabase üzerinden çalışır. Proje, ücretli alan adı veya ücretli servis gerektirmeden sağlayıcıların ücretsiz katmanlarına göre yapılandırılmıştır.
 
 **Canlı demo:** [momentum-kappa-sepia.vercel.app](https://momentum-kappa-sepia.vercel.app)
 
-![Momentum bugün ekranı](outputs/ui-ux/today-desktop.png)
+![Multiplife bugün ekranı](outputs/ui-ux/today-desktop.png)
 
 ## Öne çıkanlar
 
@@ -82,17 +84,17 @@ Bulut yarış testi geliştirme sunucusunda izole bir servis taklidi kullanır; 
 ## Google Drive klasör yedeği
 
 1. [Google Drive for desktop](https://www.google.com/drive/download/) uygulamasını kurup Google hesabınızla giriş yapın.
-2. Dosya Gezgini'nde Google Drive → Drive'ım altında `Momentum Yedekleri` klasörünü oluşturun.
-3. Momentum'u yerel `Momentum.cmd` kısayolundan açın. Yerel sunucu Drive klasörünü otomatik bulur; Ayarlar → Veri yönetimi bölümünde **Google Drive bağlı** durumu görünür.
-4. İlk açılıştan sonra klasörde `momentum-latest.json` ile günün `momentum-YYYY-AA-GG.json` dosyasının bulunduğunu doğrulayın. Google Drive simgesinde eşitlemenin tamamlandığını da kontrol edin.
+2. Dosya Gezgini'nde Google Drive → Drive'ım altında `Multiplife Yedekleri` klasörünü oluşturun.
+3. Multiplife'ı yerel `Multiplife.cmd` kısayolundan açın. Yerel sunucu Drive klasörünü otomatik bulur; Ayarlar → Veri yönetimi bölümünde **Google Drive bağlı** durumu görünür.
+4. İlk açılıştan sonra klasörde `multiplife-latest.json` ile günün `multiplife-YYYY-AA-GG.json` dosyasının bulunduğunu doğrulayın. Google Drive simgesinde eşitlemenin tamamlandığını da kontrol edin.
 
-Momentum her başarılı veri değişikliğinden sonra iki dosyayı atomik biçimde yazar ve kaydedilen içeriği tekrar okuyarak doğrular. Google Drive for desktop klasörü buluta taşır. Canlı web sürümünde yerel sunucu bulunmadığında masaüstü Chrome ve Edge için kullanıcı tarafından seçilen klasör yedeği yedek yöntem olarak kullanılabilir.
+Multiplife her başarılı veri değişikliğinden sonra iki dosyayı atomik biçimde yazar ve kaydedilen içeriği tekrar okuyarak doğrular. Google Drive for desktop klasörü buluta taşır. Canlı web sürümünde yerel sunucu bulunmadığında masaüstü Chrome ve Edge için kullanıcı tarafından seçilen klasör yedeği yedek yöntem olarak kullanılabilir.
 
 ## Ortam değişkenleri
 
 `.env.example` dosyasını `.env.local` adıyla kopyalayın ve Supabase projenizin browser için güvenli değerlerini girin. Secret veya service-role anahtarlarını `VITE_` ile başlayan değişkenlere koymayın; bu değişkenler tarayıcı paketine dahil edilir.
 
-Bulut değerleri tanımlı değilse Momentum hesap özelliğini kapalı tutarak yerel çalışmaya devam eder.
+Bulut değerleri tanımlı değilse Multiplife hesap özelliğini kapalı tutarak yerel çalışmaya devam eder.
 
 Supabase veritabanı, Auth ve Edge Function kurulumu için [Supabase kurulum notlarına](supabase/README.md) bakın.
 

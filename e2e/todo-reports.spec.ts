@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function start(page: Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Momentum’u başlat' }).click()
-  await expect(page.getByRole('dialog', { name: 'Momentum ilk kurulumu' })).toBeHidden()
+  await page.getByRole('button', { name: 'Multiplife’ı başlat' }).click()
+  await expect(page.getByRole('dialog', { name: 'Multiplife ilk kurulumu' })).toBeHidden()
 }
 async function addTask(page: Page, text: string) {
   await page.getByLabel('Yeni önemli iş').fill(text)

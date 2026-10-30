@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
     this.caughtMessage = `${error.name}: ${error.message}`
     this.setState({ errorId })
     recordDiagnostic({ kind: 'react', message: `${errorId} · ${this.caughtMessage}`, stack: `${error.stack ?? ''}\n${info.componentStack ?? ''}` })
-    console.error('Momentum arayüz hatası', errorId, error, info.componentStack)
+    console.error('Multiplife arayüz hatası', errorId, error, info.componentStack)
   }
 
   reportError = async () => {
@@ -41,7 +41,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
     try {
       const main = await loadMainState()
       const backups = await listAutomaticBackups()
-      download(`momentum-kurtarma-${new Date().toISOString().slice(0, 10)}.json`, main?.payload ?? backups[0]?.payload ?? '{}')
+      download(`multiplife-kurtarma-${new Date().toISOString().slice(0, 10)}.json`, main?.payload ?? backups[0]?.payload ?? '{}')
       this.setState({ status: 'Kurtarma dosyası indirildi.' })
     } catch { this.setState({ status: 'Kurtarma dosyası okunamadı.' }) }
     finally { this.setState({ busy: false }) }
@@ -62,6 +62,6 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
 
   render() {
     if (!this.state.failed) return this.props.children
-    return <main className="fatal-error" role="alert"><div className="card"><span className="brand-mark">M</span><p className="eyebrow">HATA KİMLİĞİ · {this.state.errorId || 'HAZIRLANIYOR'}</p><h1>Momentum güvenli biçimde durdu.</h1><p>Yerel verilerin silinmedi. Önce sayfayı yenileyebilir, sorun sürerse kurtarma dosyasını indirebilir veya son otomatik yedeğe dönebilirsin.</p><div className="fatal-actions"><button disabled={this.state.busy} onClick={() => window.location.reload()}>Sayfayı yenile</button><button disabled={this.state.busy} onClick={() => void this.downloadRecovery()}>Kurtarma dosyasını indir</button><button disabled={this.state.busy} onClick={() => void this.restoreLatest()}>Son güvenli sürümü yükle</button><button disabled={this.state.busy} onClick={() => { localStorage.setItem(safeModeKey, '1'); window.location.reload() }}>Güvenli modda aç</button><button disabled={this.state.busy} onClick={() => void this.reportError()}>Hata raporunu gönder</button><button onClick={() => void navigator.clipboard?.writeText(this.state.errorId)}>Hata kimliğini kopyala</button></div>{this.state.status && <p role="status">{this.state.status}</p>}</div></main>
+    return <main className="fatal-error" role="alert"><div className="card"><span className="brand-mark">M</span><p className="eyebrow">HATA KİMLİĞİ · {this.state.errorId || 'HAZIRLANIYOR'}</p><h1>Multiplife güvenli biçimde durdu.</h1><p>Yerel verilerin silinmedi. Önce sayfayı yenileyebilir, sorun sürerse kurtarma dosyasını indirebilir veya son otomatik yedeğe dönebilirsin.</p><div className="fatal-actions"><button disabled={this.state.busy} onClick={() => window.location.reload()}>Sayfayı yenile</button><button disabled={this.state.busy} onClick={() => void this.downloadRecovery()}>Kurtarma dosyasını indir</button><button disabled={this.state.busy} onClick={() => void this.restoreLatest()}>Son güvenli sürümü yükle</button><button disabled={this.state.busy} onClick={() => { localStorage.setItem(safeModeKey, '1'); window.location.reload() }}>Güvenli modda aç</button><button disabled={this.state.busy} onClick={() => void this.reportError()}>Hata raporunu gönder</button><button onClick={() => void navigator.clipboard?.writeText(this.state.errorId)}>Hata kimliğini kopyala</button></div>{this.state.status && <p role="status">{this.state.status}</p>}</div></main>
   }
 }

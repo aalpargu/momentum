@@ -8,7 +8,7 @@ $distIndex = Join-Path $appDir 'dist\index.html'
 
 function Show-StartupError([string]$message) {
     $shell = New-Object -ComObject WScript.Shell
-    [void]$shell.Popup($message, 0, 'Momentum başlatılamadı', 16)
+    [void]$shell.Popup($message, 0, 'Multiplife başlatılamadı', 16)
 }
 
 function Test-Port {
@@ -26,7 +26,7 @@ function Test-Port {
     return $false
 }
 
-function Test-MomentumServer {
+function Test-MultiplifeServer {
     try {
         $response = Invoke-RestMethod -Uri "$url/api/settings/gemini-key" -Method Get -TimeoutSec 2
         return $response.PSObject.Properties.Name -contains 'configured'
@@ -61,9 +61,9 @@ try {
         }
     }
 
-    if (-not (Test-MomentumServer)) {
+    if (-not (Test-MultiplifeServer)) {
         if (Test-Port) {
-            Show-StartupError "5173 portu başka veya eski bir uygulama tarafından kullanılıyor. İlgili süreci kapatıp Momentum kısayolunu yeniden aç."
+            Show-StartupError "5173 portu başka veya eski bir uygulama tarafından kullanılıyor. İlgili süreci kapatıp Multiplife kısayolunu yeniden aç."
             exit 1
         }
 
@@ -73,10 +73,10 @@ try {
         $ready = $false
         for ($index = 0; $index -lt 100; $index += 1) {
             Start-Sleep -Milliseconds 100
-            if (Test-MomentumServer) { $ready = $true; break }
+            if (Test-MultiplifeServer) { $ready = $true; break }
         }
         if (-not $ready) {
-            Show-StartupError 'Güvenli Momentum sunucusu 10 saniye içinde başlatılamadı.'
+            Show-StartupError 'Güvenli Multiplife sunucusu 10 saniye içinde başlatılamadı.'
             exit 1
         }
     }

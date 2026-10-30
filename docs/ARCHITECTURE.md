@@ -2,7 +2,7 @@
 
 ## Local records and optional services
 
-Momentum is a React application whose everyday records live in IndexedDB. UI components use domain helpers and hooks under `src/lib` and `src/hooks`; optional services are integrated around that state rather than required for the basic timer/task workflow.
+Multiplife is a React application whose everyday records live in IndexedDB. UI components use domain helpers and hooks under `src/lib` and `src/hooks`; optional services are integrated around that state rather than required for the basic timer/task workflow.
 
 | Area | Source | Responsibility |
 | --- | --- | --- |
@@ -38,8 +38,12 @@ The local companion writes backup files and verifies the saved content. Google D
 
 ### Keep application and PWA releases aligned
 
-The service-worker implementation fingerprints release content and limits cache cleanup to Momentum caches. Notification navigation remains within the application origin. Regression tests cover these boundaries without treating a successful build as proof of all browser update paths.
+The service-worker implementation fingerprints release content and limits cache cleanup to Multiplife caches. Notification navigation remains within the application origin. Regression tests cover these boundaries without treating a successful build as proof of all browser update paths.
 
 ## Verification map
 
 `tests/` covers domain calculations, task carryover, backups, local HTTP boundaries, reminder endpoints and service-worker behavior. `e2e/` covers interface workflows in Playwright. GitHub Actions runs checks on pull requests; results should be associated with the source revision being reviewed.
+
+## Name-change compatibility
+
+The product is now **Multiplife** and uses the slogan **Multiply Your Life**. Browser databases, saved preferences, backup format identifiers and existing directory permissions retain their original internal identifiers so an upgrade can still open existing records and backups. New downloads and backup files use `multiplife-` names. The local companion accepts `MULTIPLIFE_*` configuration variables and also accepts existing `MOMENTUM_*` variables; it reuses an existing local secret directory or Drive backup folder. The service worker removes obsolete caches under both names while preserving the active release and unrelated applications. The existing hosted URL remains supported so browser records stay available on their original origin.

@@ -1,10 +1,12 @@
 {
   "passed": true,
-  "checkedAt": "2026-09-12T23:19:50.222Z",
+  "checkedAt": "2026-10-30T21:25:19.897Z",
   "errors": [],
   "viewport": [
     1440,
     390
   ],
-  "fixtureOnly": true
+  "fixtureOnly": true,
+  "brand": "Multiplife",
+  "note": "Current navigation screenshots; filenames retained for existing documentation links."
 }

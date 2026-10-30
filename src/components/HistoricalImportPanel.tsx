@@ -48,13 +48,13 @@ export function HistoricalImportPanel({ state, maximumDate, disabled, onApply }:
     setStatus(`${added} geçmiş kayıt eklendi${preview.value.skipped ? `, mevcut ${preview.value.skipped} kayıt atlandı` : ''}. İşlemi aşağıdaki “Son içe aktarmayı geri al” düğmesiyle geri alabilirsin.`)
     setParsed(null); setFileName('')
   }
-  const downloadTxt = () => download('momentum-gecmis-kayit-sablonu.txt', [
+  const downloadTxt = () => download('multiplife-gecmis-kayit-sablonu.txt', [
     '# Bir satıra bir tarih yaz. Aynı günde birden fazla süre olabilir.',
     '02.09.2026 -> 30 dk Kitap; 2 saat Veri Yapıları ve Algoritmalar (DSA)',
     '03.09.2026 -> 45 dk İngilizce; 35 dk Instagram [faydasız]',
     '04.09.2026 -> 20 dk YouTube eğitim [faydalı ekran]; 15 dk Bankacılık [zorunlu]',
   ].join('\n'), 'text/plain;charset=utf-8')
-  const downloadCsv = () => download('momentum-gecmis-kayit-sablonu.csv', [
+  const downloadCsv = () => download('multiplife-gecmis-kayit-sablonu.csv', [
     'Tarih;Etkinlik;Süre;Birim;Tür;Alan',
     '02.09.2026;Kitap;30;dakika;Odak;Bilgi',
     '02.09.2026;Veri Yapıları ve Algoritmalar (DSA);2;saat;Odak;Eğitim',

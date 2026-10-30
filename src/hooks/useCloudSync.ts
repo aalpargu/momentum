@@ -105,7 +105,7 @@ export function useCloudSync({ state, storageReady, disabled, validatePayload, r
         setPhase('synced'); setMessage(`Bulut senkronizasyonu açık · sürüm ${remote.revision}`)
       } else {
         setPhase('choice')
-        setMessage(remote ? 'Bu cihaz ile buluttaki kayıt farklı. Hangisinin kullanılacağını seç.' : 'Bu hesapta henüz Momentum verisi yok.')
+        setMessage(remote ? 'Bu cihaz ile buluttaki kayıt farklı. Hangisinin kullanılacağını seç.' : 'Bu hesapta henüz Multiplife verisi yok.')
       }
     } catch (error) {
       if (operation !== operationRef.current) return

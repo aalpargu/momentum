@@ -17,9 +17,9 @@ function downloadCalendar(blocks: CalendarBlock[]) {
     const date = dayOffset ? shiftDay(block.date, dayOffset) : block.date
     return `${date.replace(/-/g, '')}T${String(Math.floor(total % 1440 / 60)).padStart(2, '0')}${String(total % 60).padStart(2, '0')}00`
   }
-  const events = blocks.map(block => ['BEGIN:VEVENT', `UID:${block.id}@momentum.local`, `DTSTAMP:${stamp}`, `DTSTART:${time(block)}`, `DTEND:${time(block, block.minutes)}`, `SUMMARY:${icsText(block.title)}`, `CATEGORIES:${icsText(block.area)}`, 'END:VEVENT'].join('\r\n'))
-  const blob = new Blob([['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Momentum//Planner//TR', 'CALSCALE:GREGORIAN', ...events, 'END:VCALENDAR'].join('\r\n')], { type: 'text/calendar;charset=utf-8' })
-  const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'momentum-takvim.ics'; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
+  const events = blocks.map(block => ['BEGIN:VEVENT', `UID:${block.id}@multiplife.local`, `DTSTAMP:${stamp}`, `DTSTART:${time(block)}`, `DTEND:${time(block, block.minutes)}`, `SUMMARY:${icsText(block.title)}`, `CATEGORIES:${icsText(block.area)}`, 'END:VEVENT'].join('\r\n'))
+  const blob = new Blob([['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Multiplife//Planner//TR', 'CALSCALE:GREGORIAN', ...events, 'END:VCALENDAR'].join('\r\n')], { type: 'text/calendar;charset=utf-8' })
+  const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'multiplife-takvim.ics'; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
 }
 export function CalendarView({ today, blocks, categories, onSave, onDelete, onDayClick }: { today: string; blocks: CalendarBlock[]; categories: FocusCategory[]; onSave: (block: CalendarBlock) => Promise<string | null>; onDelete: (id: string) => Promise<boolean>; onDayClick: (date: string) => void }) {
   const [start, setStart] = useState(() => weekStart(today))

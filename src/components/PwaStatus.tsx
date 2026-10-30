@@ -15,11 +15,11 @@ export function PwaStatus() {
     const install = (event: Event) => { event.preventDefault(); setInstallPrompt(event as InstallPromptEvent) }
     window.addEventListener('online', connected)
     window.addEventListener('offline', disconnected)
-    window.addEventListener('momentum-sw-update', update)
+    window.addEventListener('multiplife-sw-update', update)
     window.addEventListener('beforeinstallprompt', install)
     // The worker may finish installing before IndexedDB allows this UI to mount.
     void navigator.serviceWorker?.getRegistration().then(registration => { if (active && registration?.waiting) setUpdateReady(true) }).catch(() => undefined)
-    return () => { active = false; window.removeEventListener('online', connected); window.removeEventListener('offline', disconnected); window.removeEventListener('momentum-sw-update', update); window.removeEventListener('beforeinstallprompt', install) }
+    return () => { active = false; window.removeEventListener('online', connected); window.removeEventListener('offline', disconnected); window.removeEventListener('multiplife-sw-update', update); window.removeEventListener('beforeinstallprompt', install) }
   }, [])
   if (online && !updateReady && !installPrompt) return null
   const applyUpdate = async () => {
@@ -36,7 +36,7 @@ export function PwaStatus() {
     setInstallPrompt(null)
   }
   return <aside className={`pwa-status ${online ? '' : 'offline'}`} role="status">
-    <span>{error || (!online ? 'Çevrimdışısın · değişiklikler bu cihazda güvende' : updateReady ? 'Momentum’un yeni sürümü hazır' : 'Momentum’u cihazına kurabilirsin')}</span>
+    <span>{error || (!online ? 'Çevrimdışısın · değişiklikler bu cihazda güvende' : updateReady ? 'Multiplife’ın yeni sürümü hazır' : 'Multiplife’ı cihazına kurabilirsin')}</span>
     {updateReady && <button type="button" onClick={() => { setError(''); void applyUpdate().catch(() => setError('Güncelleme başlatılamadı. Tekrar dene.')) }}>Güncelle</button>}
     {!updateReady && online && installPrompt && <button type="button" onClick={() => { setError(''); void install().catch(() => setError('Kurulum başlatılamadı. Tekrar dene.')) }}>Uygulamayı kur</button>}
   </aside>

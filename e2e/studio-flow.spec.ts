@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function start(page: Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Momentum’u başlat' }).click()
-  await expect(page.getByRole('dialog', { name: 'Momentum ilk kurulumu' })).toBeHidden()
+  await page.getByRole('button', { name: 'Multiplife’ı başlat' }).click()
+  await expect(page.getByRole('dialog', { name: 'Multiplife ilk kurulumu' })).toBeHidden()
 }
 
 test('chosen focus duration survives reload and pause/resume', async ({ page }) => {
@@ -40,7 +40,7 @@ test('daily path opens the correct action and manual capture stays available', a
 test('light theme and reduced motion persist with no page overflow', async ({ page }) => {
   await start(page)
   await page.getByRole('button', { name: 'Ayarlar', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Momentum ayarları' })
+  const dialog = page.getByRole('dialog', { name: 'Multiplife ayarları' })
   await dialog.getByRole('combobox', { name: 'Tema', exact: true }).selectOption('light')
   await dialog.getByRole('checkbox', { name: /^Hareketi azalt/ }).check()
   await dialog.getByRole('button', { name: 'Profili kaydet' }).click()

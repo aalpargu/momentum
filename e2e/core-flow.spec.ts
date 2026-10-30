@@ -2,11 +2,11 @@ import { expect, test } from '@playwright/test'
 
 async function finishOnboarding(page: import('@playwright/test').Page) {
   await page.goto('/')
-  await expect(page.getByRole('dialog', { name: 'Momentum ilk kurulumu' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Multiplife ilk kurulumu' })).toBeVisible()
   await page.getByLabel('Adın').fill('Test Kullanıcısı')
   await page.getByRole('button', { name: /^Yazılımcı/ }).click()
-  await page.getByRole('button', { name: 'Momentum’u başlat' }).click()
-  await expect(page.getByRole('dialog', { name: 'Momentum ilk kurulumu' })).toBeHidden()
+  await page.getByRole('button', { name: 'Multiplife’ı başlat' }).click()
+  await expect(page.getByRole('dialog', { name: 'Multiplife ilk kurulumu' })).toBeHidden()
   await expect(page.getByRole('heading', { name: /Merhaba|Günaydın|İyi/ })).toBeVisible()
 }
 
@@ -93,7 +93,7 @@ test('all lazy-loaded sections and settings open without browser errors', async 
   }
 
   await page.getByRole('button', { name: 'Ayarlar', exact: true }).click()
-  const customizeDialog = page.getByRole('dialog', { name: 'Momentum ayarları' })
+  const customizeDialog = page.getByRole('dialog', { name: 'Multiplife ayarları' })
   await expect(customizeDialog).toBeVisible()
   await customizeDialog.getByRole('tab', { name: 'Hatırlatıcılar', exact: true }).click()
   await expect(customizeDialog.getByText('Uygulama kapalıyken hatırlat', { exact: true })).toBeVisible()

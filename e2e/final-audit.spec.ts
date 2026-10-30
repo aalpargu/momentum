@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function start(page: Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Momentum’u başlat' }).click()
-  await expect(page.getByRole('dialog', { name: 'Momentum ilk kurulumu' })).toBeHidden()
+  await page.getByRole('button', { name: 'Multiplife’ı başlat' }).click()
+  await expect(page.getByRole('dialog', { name: 'Multiplife ilk kurulumu' })).toBeHidden()
 }
 
 async function readPayload(page: Page) {
@@ -17,7 +17,7 @@ async function readPayload(page: Page) {
 test('Escape dismisses only the top modal and restores focus and scroll lock', async ({ page }) => {
   await start(page)
   await page.getByRole('button', { name: 'Ayarlar', exact: true }).click()
-  const settings = page.getByRole('dialog', { name: 'Momentum ayarları' })
+  const settings = page.getByRole('dialog', { name: 'Multiplife ayarları' })
   await expect(settings).toBeVisible()
   await page.keyboard.press('Control+k')
   await expect(page.getByRole('dialog', { name: 'Hızlı odak kaydı' })).toBeVisible()

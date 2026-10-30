@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react'
 import { buildServiceWorker } from './scripts/service-worker.mjs'
 import packageJson from './package.json' with { type: 'json' }
 
-function momentumServiceWorker(): Plugin {
+function multiplifeServiceWorker(): Plugin {
   return {
-    name: 'momentum-service-worker',
+    name: 'multiplife-service-worker',
     enforce: 'post',
     generateBundle(_, bundle) {
       this.emitFile({ type: 'asset', fileName: 'sw.js', source: buildServiceWorker(packageJson.version, bundle) })
@@ -14,7 +14,7 @@ function momentumServiceWorker(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), momentumServiceWorker()],
+  plugins: [react(), multiplifeServiceWorker()],
   base: './',
   define: { __APP_VERSION__: JSON.stringify(packageJson.version) },
 })

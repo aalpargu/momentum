@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function start(page: Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Momentum’u başlat' }).click()
-  await expect(page.getByRole('dialog', { name: 'Momentum ilk kurulumu' })).toBeHidden()
+  await page.getByRole('button', { name: 'Multiplife’ı başlat' }).click()
+  await expect(page.getByRole('dialog', { name: 'Multiplife ilk kurulumu' })).toBeHidden()
 }
 async function tab(page: Page, name: string) {
   await page.getByRole('navigation', { name: 'Ana bölümler' }).getByRole('button', { name, exact: true }).click()
@@ -73,7 +73,7 @@ test('a created habit records a quantity and preserves it after archiving and re
   await card.locator('form').getByRole('button').click()
   await expect(card).toHaveClass(/habit-ideal/)
   await page.getByRole('button', { name: 'Ayarlar', exact: true }).click()
-  const settings = page.getByRole('dialog', { name: 'Momentum ayarları' })
+  const settings = page.getByRole('dialog', { name: 'Multiplife ayarları' })
   await settings.getByRole('tab', { name: 'Alışkanlıklar' }).click()
   const row = settings.locator('.management-row').filter({ has: page.getByLabel('Türkçe okuma adı') })
   await row.getByRole('button', { name: 'Arşivle' }).click()

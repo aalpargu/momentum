@@ -19,13 +19,13 @@ export function shellRevision(sources) {
 }
 
 export function createServiceWorker(version, assets) {
-  return `const CACHE_NAME=${JSON.stringify('momentum-shell-v' + version)}
+  return `const CACHE_NAME=${JSON.stringify('multiplife-shell-v' + version)}
 const APP_SHELL=${JSON.stringify([...new Set(assets)])}
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)))
 })
 self.addEventListener('activate', event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('momentum-shell-v') && key !== CACHE_NAME).map(key => caches.delete(key)))).then(() => self.clients.claim()))
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => (key.startsWith('multiplife-shell-v') || key.startsWith('momentum-shell-v')) && key !== CACHE_NAME).map(key => caches.delete(key)))).then(() => self.clients.claim()))
 })
 self.addEventListener('message', event => { if (event.data?.type === 'SKIP_WAITING') self.skipWaiting() })
 self.addEventListener('fetch', event => {
@@ -43,8 +43,8 @@ self.addEventListener('push', event => {
   let data = {}
   try { data = event.data?.json() ?? {} } catch { data = { body: event.data?.text() ?? '' } }
   if (!data || typeof data !== 'object') data = {}
-  const title = typeof data.title === 'string' ? data.title : 'Momentum'
-  const options = { body: typeof data.body === 'string' ? data.body : 'Momentum hatırlatıcın hazır.', icon: '/icon-192.png', badge: '/icon-192.png', tag: typeof data.tag === 'string' ? data.tag : 'momentum-reminder', data: { url: typeof data.url === 'string' ? data.url : '/' } }
+  const title = typeof data.title === 'string' ? data.title : 'Multiplife'
+  const options = { body: typeof data.body === 'string' ? data.body : 'Multiplife hatırlatıcın hazır.', icon: '/icon-192.png', badge: '/icon-192.png', tag: typeof data.tag === 'string' ? data.tag : 'multiplife-reminder', data: { url: typeof data.url === 'string' ? data.url : '/' } }
   event.waitUntil(self.registration.showNotification(title, options))
 })
 self.addEventListener('notificationclick', event => {

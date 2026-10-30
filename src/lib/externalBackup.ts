@@ -27,7 +27,7 @@ const storeName = 'settings'
 const handleKey = 'destination'
 const metadataKey = 'metadata'
 const pendingStorageKey = 'momentum-external-backup-pending-v1'
-export const externalBackupStateEvent = 'momentum:external-backup-state'
+export const externalBackupStateEvent = 'multiplife:external-backup-state'
 let writeQueue: Promise<ExternalBackupState> = Promise.resolve({ supported: true, configured: false })
 
 function announce(state: ExternalBackupState) {
@@ -117,8 +117,8 @@ async function performWrite(requestPermission: boolean): Promise<ExternalBackupS
     const exportedAt = new Date().toISOString()
     const contents = createExternalBackupContents(payload, exportedAt)
     const day = exportedAt.slice(0, 10)
-    await writeBackupFile(directory, 'momentum-latest.json', contents)
-    await writeBackupFile(directory, `momentum-${day}.json`, contents)
+    await writeBackupFile(directory, 'multiplife-latest.json', contents)
+    await writeBackupFile(directory, `multiplife-${day}.json`, contents)
     await writeValue(metadataKey, { lastBackupAt: exportedAt })
     clearPending()
     return { supported: true, configured: true, directoryName: directory.name, permission: 'granted', lastBackupAt: exportedAt }

@@ -42,7 +42,7 @@ createRoot(document.getElementById('root')!).render(
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(registration => {
-      const announceWaiting = () => { if (registration.waiting && navigator.serviceWorker.controller) window.dispatchEvent(new Event('momentum-sw-update')) }
+      const announceWaiting = () => { if (registration.waiting && navigator.serviceWorker.controller) window.dispatchEvent(new Event('multiplife-sw-update')) }
       announceWaiting()
       registration.addEventListener('updatefound', () => {
         const worker = registration.installing

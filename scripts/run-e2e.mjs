@@ -22,7 +22,7 @@ try {
   if ('listen' in server) await server.listen()
   testProcess = spawn(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', ...process.argv.slice(2).filter(argument => argument !== '--production')], {
     stdio: 'inherit',
-    env: { ...process.env, MOMENTUM_E2E_PRODUCTION: production ? '1' : '0' },
+    env: { ...process.env, MULTIPLIFE_E2E_PRODUCTION: production ? '1' : '0' },
   })
   process.exitCode = await new Promise((resolve, reject) => {
     testProcess.once('error', reject)

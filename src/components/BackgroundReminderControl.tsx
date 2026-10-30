@@ -34,8 +34,8 @@ export function BackgroundReminderControl({ account, reminders }: { account: Clo
   return <section className="background-reminder-control">
     <div className="background-reminder-heading"><div><strong>Uygulama kapalıyken hatırlat</strong><p>Supabase Cron ve standart Web Push ile çalışır; ek bildirim servisi kullanılmaz.</p></div><span className={state.subscribed ? 'connected' : ''}>{state.subscribed ? 'Bağlı' : 'Kapalı'}</span></div>
     <p className="background-reminder-status" role="status">{status}</p>
-    {!account && <p className="subtle">Cihaz aboneliğini yalnız sana bağlayabilmek için ücretsiz Momentum hesabı gerekir.</p>}
+    {!account && <p className="subtle">Cihaz aboneliğini yalnız sana bağlayabilmek için ücretsiz Multiplife hesabı gerekir.</p>}
     {state.supported && (state.subscribed ? <button type="button" disabled={busy} onClick={() => void disable()}>Bu cihazda kapat</button> : <button type="button" disabled={busy || !account || !reminders.enabled} onClick={() => void enable()}>Bu cihazda arka planı aç</button>)}
-    <small>iPhone ve iPad’de Web Push için Momentum’u Ana Ekran’a eklemek gerekir. Teslim zamanı tarayıcı ve işletim sistemi tarafından birkaç dakika geciktirilebilir.</small>
+    <small>iPhone ve iPad’de Web Push için Multiplife’ı Ana Ekran’a eklemek gerekir. Teslim zamanı tarayıcı ve işletim sistemi tarafından birkaç dakika geciktirilebilir.</small>
   </section>
 }

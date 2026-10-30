@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function start(page: Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Momentum’u başlat' }).click()
-  await expect(page.getByRole('dialog', { name: 'Momentum ilk kurulumu' })).toBeHidden()
+  await page.getByRole('button', { name: 'Multiplife’ı başlat' }).click()
+  await expect(page.getByRole('dialog', { name: 'Multiplife ilk kurulumu' })).toBeHidden()
 }
 async function plan(page: Page, text: string) {
   await page.getByRole('textbox', { name: 'Yeni önemli iş' }).fill(text)
@@ -110,7 +110,7 @@ test('read failure never overwrites the durable database or pretends to start fr
   })
   await failed.goto('/')
   await expect(failed.getByRole('button', { name: 'Tekrar dene', exact: true })).toBeVisible()
-  await expect(failed.getByRole('button', { name: 'Momentum’u başlat' })).toHaveCount(0)
+  await expect(failed.getByRole('button', { name: 'Multiplife’ı başlat' })).toHaveCount(0)
   expect(await readMain(page)).toEqual(before)
 })
 

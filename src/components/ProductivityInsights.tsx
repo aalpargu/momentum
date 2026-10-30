@@ -96,7 +96,7 @@ export function ProductivityInsights({ sessions, screenEntries, today, targetMin
     const text = weeklyReportText(report) + '\nHedefe ulaşılan gün: ' + targetDays + '/' + report.days.length + ' · günlük hedef ' + shortDuration(targetMinutes * 60)
     const url = URL.createObjectURL(new Blob(['\uFEFF', text], { type: 'text/markdown;charset=utf-8' }))
     const link = document.createElement('a')
-    link.href = url; link.download = 'momentum-' + (mode === 'week' ? 'haftalik' : 'aylik') + '-rapor-' + report.period.start + '.md'; link.click()
+    link.href = url; link.download = 'multiplife-' + (mode === 'week' ? 'haftalik' : 'aylik') + '-rapor-' + report.period.start + '.md'; link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
   return <section className="productivity-section" aria-label="Verimlilik analizi">

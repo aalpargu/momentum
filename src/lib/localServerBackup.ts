@@ -7,7 +7,7 @@ export type LocalServerBackupState = {
   lastBackupAt?: string
 }
 
-export const localServerBackupStateEvent = 'momentum:local-server-backup-state'
+export const localServerBackupStateEvent = 'multiplife:local-server-backup-state'
 let writeQueue: Promise<LocalServerBackupState> = Promise.resolve({ available: false })
 
 function announce(state: LocalServerBackupState) {

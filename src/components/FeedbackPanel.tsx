@@ -40,14 +40,14 @@ export function FeedbackPanel({ account }: { account: CloudAccount | null }) {
 
   return <section className="feedback-panel">
     <div className="privacy-control"><div><p className="eyebrow">GİZLİLİK KONTROLÜ</p><h3>Anonim kullanım istatistikleri</h3><p className="gemini-help">Vercel Web Analytics yalnız toplu sayfa görüntülemelerini ölçer; üçüncü taraf çerez, üretkenlik içeriği, e-posta veya tam URL parametreleri gönderilmez.</p></div><label className="toggle-label"><input type="checkbox" checked={analyticsEnabled} onChange={event => toggleAnalytics(event.target.checked)} /><span>Bu cihazda açık</span></label></div>
-    <div><p className="eyebrow">GERİ BİLDİRİM VE HATA RAPORU</p><h3>Momentum’u birlikte iyileştirelim</h3><p className="gemini-help">Üretkenlik kayıtların gönderilmez. Tanılama izni açıksa yalnız uygulama sürümü, ekran boyutu, sayfa yolu ve ayıklanmış son teknik hatalar eklenir.</p></div>
+    <div><p className="eyebrow">GERİ BİLDİRİM VE HATA RAPORU</p><h3>Multiplife’ı birlikte iyileştirelim</h3><p className="gemini-help">Üretkenlik kayıtların gönderilmez. Tanılama izni açıksa yalnız uygulama sürümü, ekran boyutu, sayfa yolu ve ayıklanmış son teknik hatalar eklenir.</p></div>
     <form onSubmit={submit}>
       <label>Konu<select value={category} onChange={event => setCategory(event.target.value as FeedbackCategory)}><option value="experience">Deneyim</option><option value="problem">Sorun bildir</option><option value="idea">Öneri</option></select></label>
       <label>Açıklama<textarea value={message} onChange={event => { setMessage(event.target.value); setStatus('') }} minLength={10} maxLength={2_000} placeholder="Ne oldu, ne bekliyordun veya neyi daha iyi yapabiliriz?" /></label>
       <label className="toggle-label"><input type="checkbox" checked={includeDiagnostics} onChange={event => setIncludeDiagnostics(event.target.checked)} /><span>Teknik tanılamayı ekle</span></label>
       <button className="timer-button" disabled={busy || !account || message.trim().length < 10}>{busy ? 'Gönderiliyor…' : 'Geri bildirimi gönder'}</button>
     </form>
-    {!account && <p className="backup-warning">Sunucuyu kötüye kullanımdan korumak için gönderim giriş yapmış hesaplarla sınırlıdır. Hesapsız kullanımda <a href="https://github.com/aalpargu/momentum/issues" target="_blank" rel="noreferrer">destek sayfasını</a> kullanabilirsin.</p>}
+    {!account && <p className="backup-warning">Sunucuyu kötüye kullanımdan korumak için gönderim giriş yapmış hesaplarla sınırlıdır. Hesapsız kullanımda <a href="https://github.com/aalpargu/multiplife/issues" target="_blank" rel="noreferrer">destek sayfasını</a> kullanabilirsin.</p>}
     <button type="button" className="quiet-button clear-diagnostics" onClick={() => { try { clearDiagnostics(); setStatus('Bu cihazdaki teknik tanılama geçmişi temizlendi.') } catch { setStatus('Teknik tanılama geçmişi temizlenemedi. Depolama iznini kontrol et.') } }}>Yerel tanılama geçmişini temizle</button>
     {status && <p className="feedback-status" role="status">{status}</p>}
   </section>

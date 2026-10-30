@@ -201,7 +201,7 @@ export type ProductivityReport = ReturnType<typeof buildProductivityReport>
 
 export function weeklyReportText(report: ProductivityReport) {
   return [
-    `# Momentum · ${report.mode === 'month' ? 'Aylık' : 'Haftalık'} verimlilik raporu`,
+    `# Multiplife · ${report.mode === 'month' ? 'Aylık' : 'Haftalık'} verimlilik raporu`,
     periodLabel(report.period.start, report.period.end),
     `Karşılaştırma: ${periodLabel(report.period.previousStart, report.period.previousEnd)}`,
     '',

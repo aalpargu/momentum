@@ -15,7 +15,7 @@ The maintenance update brings the saved local development source into the reposi
 | CodeQL / JavaScript and TypeScript checks | Passed |
 | Vercel preview deployment | Passed |
 
-The full remote checks above passed on functional commit `1ae63be89e946751fbea4e0d2b9713c5de0f0794` in [CI run 40802477765](https://github.com/aalpargu/momentum/actions/runs/40802477765). The later documentation update does not change application behavior. Configured skipped scenarios are not treated as completed tests.
+The full remote checks above passed on functional commit `1ae63be89e946751fbea4e0d2b9713c5de0f0794` in [CI run 40802477765](https://github.com/aalpargu/multiplife/actions/runs/40802477765). The later documentation update does not change application behavior. Configured skipped scenarios are not treated as completed tests.
 
 The CI failures encountered while preparing this update led to three fixes: current Vite/transitive packages, wrapping page headings on narrow screens, and rejecting Windows absolute-path syntax in the companion server on every host OS. The first full Windows browser run had Firefox process-launch and WebKit failures; the completed Linux CI run is the evidence for the configured remote browser matrix.
 

@@ -43,10 +43,10 @@ function validTimezone(value: unknown) {
 }
 
 function notification(kind: PushRow['notification_kind']) {
-  if (kind === 'plan') return { title: 'Günü planlama zamanı', body: 'Bugünün en önemli üç işini seçerek güne yön ver.', tag: 'momentum-plan' }
-  if (kind === 'habits') return { title: 'Bugünün ritmini tamamla', body: 'Alışkanlıklarını kontrol et; küçük ilerleme de ilerlemedir.', tag: 'momentum-habits' }
-  if (kind === 'reflection') return { title: 'Günü kapat', body: 'Bugünden öğrendiğini ve yarının ilk adımını kısaca kaydet.', tag: 'momentum-reflection' }
-  return { title: 'Haftalık Momentum özeti', body: 'Kazançlarını, sürtünmeleri ve gelecek haftanın odağını gözden geçir.', tag: 'momentum-weekly' }
+  if (kind === 'plan') return { title: 'Günü planlama zamanı', body: 'Bugünün en önemli üç işini seçerek güne yön ver.', tag: 'multiplife-plan' }
+  if (kind === 'habits') return { title: 'Bugünün ritmini tamamla', body: 'Alışkanlıklarını kontrol et; küçük ilerleme de ilerlemedir.', tag: 'multiplife-habits' }
+  if (kind === 'reflection') return { title: 'Günü kapat', body: 'Bugünden öğrendiğini ve yarının ilk adımını kısaca kaydet.', tag: 'multiplife-reflection' }
+  return { title: 'Haftalık Multiplife özeti', body: 'Kazançlarını, sürtünmeleri ve gelecek haftanın odağını gözden geçir.', tag: 'multiplife-weekly' }
 }
 
 function claimedDateColumn(kind: PushRow['notification_kind']) {
@@ -79,7 +79,7 @@ export default {
       if (!cronSecret) return response(request, { error: 'Yetkisiz.' }, 401)
       const { data, error } = await admin.rpc('claim_due_push_notifications', { cron_secret: cronSecret, batch_size: 50 })
       if (error) return response(request, { error: 'Hatırlatıcı kuyruğu alınamadı.' }, 401)
-      webpush.setVapidDetails('mailto:momentum-notifications@users.noreply.github.com', publicKey, privateKey)
+      webpush.setVapidDetails('mailto:multiplife-notifications@users.noreply.github.com', publicKey, privateKey)
       let sent = 0
       let removed = 0
       for (const row of (data ?? []) as PushRow[]) {
