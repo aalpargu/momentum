@@ -1,4 +1,4 @@
-project_id = "momentum"
+project_id = "multiplife"
 
 [auth]
 site_url = "http://localhost:5173"
