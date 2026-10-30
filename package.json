@@ -22,7 +22,7 @@
   "dependencies": {
     "@supabase/supabase-js": "2.115.0",
     "@vercel/analytics": "2.0.1",
-    "@vitejs/plugin-react": "6.0.5",
+    "@vitejs/plugin-react": "6.1.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "read-excel-file": "^9.3.10",
